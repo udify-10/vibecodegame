@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>ASCII TEKKEN</title>
+<style>
+  body { 
+    background-color: #000; 
+    color: #3f3; 
+    font-family: 'Courier New', Courier, monospace; 
+    text-align: center; 
+    margin: 0; 
+    padding: 20px;
+    user-select: none;
+  }
+  .screen { display: none; margin: 0 auto; width: 800px; padding: 20px; border: 1px solid #3f3; }
+  .active { display: block; }
+  h1 { text-shadow: 0 0 10px #3f3; font-size: 40px; margin-bottom: 50px; }
+  button { 
+    background: #000; color: #3f3; border: 1px solid #3f3; 
+    padding: 10px 20px; margin: 10px; font-family: inherit; font-size: 20px; cursor: pointer;
+  }
+  button:hover { background: #3f3; color: #000; }
+  
+  /* 설정 화면 */
+  .setting-item { font-size: 24px; margin: 20px; }
+
+  /* 캐릭터 선택 화면 */
+  #char-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin: 20px 0; }
+  .char-btn { font-size: 16px; padding: 15px 5px; }
+  #select-status { font-size: 24px; color: #ff0; margin-bottom: 20px; }
+  .team-display { display: flex; justify-content: space-between; margin-top: 20px; font-size: 18px; color: #fff;}
+
+  /* 게임 화면 */
+  #game-board { 
+    text-align: left; 
+    font-size: 18px; 
+    line-height: 1.2; 
+    white-space: pre; 
+    background-color: #111;
+    padding: 20px;
+    margin-bottom: 10px;
+    min-height: 250px;
+  }
+  .ui-bar { display: flex; justify-content: space-between; margin-bottom: 10px; font-weight: bold; }
+  .hp-bar { color: #f33; }
+  .log { font-size: 16px; color: #aaa; height: 40px; }
+</style>
+</head>
+<body>
+
+  <!-- 1. 메인 메뉴 -->
+  <div id="screen-main" class="screen active">
+    <h1>=== ASCII TEKKEN ===</h1>
+    <button onclick="nav('screen-select')">GAME START</button><br>
+    <button onclick="nav('screen-settings')">SETTINGS</button><br>
+    <button onclick="alert('브라우저 탭을 닫아 종료해주세요.')">EXIT</button>
+  </div>
+
+  <!-- 2. 설정 화면 -->
+  <div id="screen-settings" class="screen">
+    <h1>SETTINGS</h1>
+    <div class="setting-item">
+      음량: <button onclick="toggleSet('vol')"><span id="vol-txt">100%</span></button>
+    </div>
+    <div class="setting-item">
+      효과음 (SFX): <button onclick="toggleSet('sfx')"><span id="sfx-txt">ON</span></button>
+    </div>
+    <br><br>
+    <button onclick="nav('screen-main')">BACK TO MENU</button>
+  </div>
+
+  <!-- 3. 캐릭터 선택 화면 -->
+  <div id="screen-select" class="screen">
+    <h1>CHARACTER SELECT</h1>
+    <div id="select-status">Player 1 - 첫 번째 캐릭터를 선택하세요</div>
+    <div id="char-grid"></div>
+    <div class="team-display">
+      <div id="p1-team">P1 TEAM: [ 대기중 ]</div>
+      <div id="p2-team">P2 TEAM: [ 대기중 ]</div>
+    </div>
+  </div>
+
+  <!-- 4. 게임 화면 -->
+  <div id="screen-game" class="screen">
+    <div class="ui-bar">
+      <div id="p1-ui">P1 <span class="hp-bar" id="p1-hp"></span></div>
+      <div id="time">TIME: 99</div>
+      <div id="p2-ui"><span class="hp-bar" id="p2-hp"></span> P2</div>
+    </div>
+    <div id="game-board"></div>
+    <div class="log" id="battle-log">FIGHT!</div>
+    <div style="font-size: 14px; color:#666; margin-top:20px;">
+      P1: WASD(이동/방어), F(펀치), G(킥), H(스킬), T(태그) | P2: 화살표(이동/방어), I(펀치), O(킥), P(스킬), L(태그)
+    </div>
+  </div>
+
+<script>
+  // --- 데이터 및 상태 ---
+  const tekkenRoster = [
+    { id: 1, name: "Jin", skillName: "풍신권", dmg: 4, range: 4, effect: "⚡" },
+    { id: 2, name: "Kazuya", skillName: "나락쓸기", dmg: 3, range: 3, effect: "🌪️" },
+    { id: 3, name: "Heihachi", skillName: "뇌신권", dmg: 5, range: 4, effect: "🌩️" },
+    { id: 4, name: "Paul", skillName: "붕권", dmg: 7, range: 3, effect: "💥" },
+    { id: 5, name: "Law", skillName: "썸머솔트", dmg: 3, range: 4, effect: "🤸" },
+    { id: 6, name: "King", skillName: "자이언트스윙", dmg: 6, range: 2, effect: "🌀" },
+    { id: 7, name: "Yoshimitsu", skillName: "요시미츠블레이드", dmg: 4, range: 5, effect: "🗡️" },
+    { id: 8, name: "Nina", skillName: "아이보리커터", dmg: 3, range: 3, effect: "🔪" },
+    { id: 9, name: "Hwoarang", skillName: "초스카이", dmg: 4, range: 4, effect: "🦅" },
+    { id: 10, name: "Xiaoyu", skillName: "봉황자세(카운터)", dmg: 3, range: 3, effect: "🦚" }
+  ];
+
+  let selectStep = 0; // 0: P1_1, 1: P2_1, 2: P1_2, 3: P2_2
+  let p1Team = [];
+  let p2Team = [];
+  let p1Active = 0, p2Active = 0;
+  
+  // 인게임 상태
+  let p1 = { x: 5, hp: [40, 40], state: 'idle', timer: 0, guard: false };
+  let p2 = { x: 40, hp: [40, 40], state: 'idle', timer: 0, guard: false };
+  const boardWidth = 50;
+  let gameInterval, time = 99;
+
+  // 스프라이트 
+  const spr = {
+    idle:  ["  o  ", " /|\\ ", " / \\ "],
+    punch: ["  o__", " /|  ", " / \\ "],
+    kick:  ["  o  ", " /|  ", " / \\_"],
+    skill: [" \\o/ ", " -|- ", " / \\ "],
+    guard: ["  o  ", " /|] ", " / \\ "],
+    hit:   ["  o  ", " <|\\ ", " / > "]
+  };
+  const spr2 = {
+    idle:  ["  o  ", " /|\\ ", " / \\ "],
+    punch: ["__o  ", "  |\\ ", " / \\ "],
+    kick:  ["  o  ", "  |\\ ", "_/ \\ "],
+    skill: [" \\o/ ", " -|- ", " / \\ "],
+    guard: ["  o  ", " [|\\ ", " / \\ "],
+    hit:   ["  o  ", " /|> ", " < \\ "]
+  };
+
+  // --- UI 네비게이션 ---
+  function nav(screenId) {
+    document.querySelectorAll('.screen').forEach(el => el.classList.remove('active'));
+    document.getElementById(screenId).classList.add('active');
+    
+    if(screenId === 'screen-select') initSelect();
+    if(screenId === 'screen-game') startGame();
+  }
+
+  // --- 설정 로직 ---
+  let sfxOn = true;
+  function toggleSet(type) {
+    if(type === 'sfx') {
+      sfxOn = !sfxOn;
+      document.getElementById('sfx-txt').innerText = sfxOn ? "ON" : "OFF";
+    }
+    if(type === 'vol') {
+      let v = document.getElementById('vol-txt');
+      v.innerText = v.innerText === "100%" ? "50%" : v.innerText === "50%" ? "0%" : "100%";
+    }
+  }
+
+  // --- 캐릭터 선택 로직 ---
+  function initSelect() {
+    selectStep = 0; p1Team = []; p2Team = [];
+    document.getElementById('p1-team').innerText = "P1 TEAM: [ 대기중 ]";
+    document.getElementById('p2-team').innerText = "P2 TEAM: [ 대기중 ]";
+    updateSelectStatus();
+    
+    const grid = document.getElementById('char-grid');
+    grid.innerHTML = '';
+    tekkenRoster.forEach(c => {
+      let btn = document.createElement('button');
+      btn.className = 'char-btn';
+      btn.innerText = c.name;
+      btn.onclick = () => selectChar(c);
+      grid.appendChild(btn);
+    });
+  }
+
+  function updateSelectStatus() {
+    const msg = [
+      "Player 1 - 첫 번째 캐릭터를 선택하세요",
+      "Player 2 - 첫 번째 캐릭터를 선택하세요",
+      "Player 1 - 두 번째 캐릭터를 선택하세요",
+      "Player 2 - 두 번째 캐릭터를 선택하세요"
+    ];
+    document.getElementById('select-status').innerText = msg[selectStep] || "준비 완료!";
+  }
+
+  function selectChar(char) {
+    if(selectStep > 3) return;
+    
+    if(selectStep === 0 || selectStep === 2) {
+      p1Team.push(char);
+      document.getElementById('p1-team').innerText = `P1 TEAM: ${p1Team.map(c=>c.name).join(' & ')}`;
+    } else {
+      p2Team.push(char);
+      document.getElementById('p2-team').innerText = `P2 TEAM: ${p2Team.map(c=>c.name).join(' & ')}`;
+    }
+    
+    selectStep++;
+    if(selectStep > 3) {
+      setTimeout(() => nav('screen-game'), 500);
+    } else {
+      updateSelectStatus();
+    }
+  }
+
+  // --- 게임 엔진 ---
+  function startGame() {
+    p1 = { x: 5, hp: [40, 40], state: 'idle', timer: 0, guard: false };
+    p2 = { x: 40, hp: [40, 40], state: 'idle', timer: 0, guard: false };
+    p1Active = 0; p2Active = 0;
+    time = 99;
+    log("ROUND 1, FIGHT!");
+    if(gameInterval) clearInterval(gameInterval);
+    gameInterval = setInterval(gameLoop, 100); // 10FPS
+  }
+
+  function log(msg) {
+    document.getElementById('battle-log').innerText = msg;
+  }
+
+  function renderHP(hpArray, activeIdx) {
+    let mainHP = Math.max(0, hpArray[activeIdx]);
+    let subHP = Math.max(0, hpArray[1 - activeIdx]);
+    return `[${"█".repeat(Math.ceil(mainHP/2)).padEnd(20,"░")}] (SUB: ${subHP})`;
+  }
+
+  function gameLoop() {
+    if(time > 0 && p1.hp[p1Active] > 0 && p2.hp[p2Active] > 0) {
+       if(Math.random() < 0.1) time--; // 타이머 천천히 감소
+    }
+
+    // 상태 복구
+    if(p1.timer > 0) p1.timer--; else { p1.state = p1.guard ? 'guard' : 'idle'; }
+    if(p2.timer > 0) p2.timer--; else { p2.state = p2.guard ? 'guard' : 'idle'; }
+
+    // UI 업데이트
+    document.getElementById('time').innerText = `TIME: ${time}`;
+    document.getElementById('p1-ui').innerHTML = `<b>${p1Team[p1Active].name}</b> <span class="hp-bar">${renderHP(p1.hp, p1Active)}</span>`;
+    document.getElementById('p2-ui').innerHTML = `<span class="hp-bar">${renderHP(p2.hp, p2Active)}</span> <b>${p2Team[p2Active].name}</b>`;
+
+    // 렌더링
+    let screen = [];
+    for(let i=0; i<3; i++) {
+      let line = Array(boardWidth).fill(" ");
+      let s1 = spr[p1.state][i];
+      let s2 = spr2[p2.state][i];
+      for(let j=0; j<s1.length; j++) if(p1.x+j < boardWidth) line[p1.x+j] = s1[j];
+      for(let j=0; j<s2.length; j++) if(p2.x+j < boardWidth) line[p2.x+j] = s2[j];
+      screen.push(line.join(""));
+    }
+    screen.push("▔".repeat(boardWidth));
+    
+    // 승패 체크
+    if(p1.hp[p1Active] <= 0) screen.push("\n         >>> K.O! PLAYER 2 WINS! <<<");
+    else if(p2.hp[p2Active] <= 0) screen.push("\n         >>> K.O! PLAYER 1 WINS! <<<");
+    else if(time <= 0) screen.push("\n         >>> TIME UP! <<<");
+
+    document.getElementById('game-board').innerText = screen.join("\n");
+    
+    if(p1.hp[p1Active] <= 0 || p2.hp[p2Active] <= 0 || time <= 0) clearInterval(gameInterval);
+  }
+
+  // 타격 판정 로직
+  function attemptAttack(attacker, defPlayer, attX, defX, atkType, skillData = null) {
+    attacker.state = atkType; 
+    attacker.timer = atkType === 'skill' ? 5 : 3;
+    
+    let range = 4;
+    let dmg = 2;
+    let name = "일반 공격";
+
+    if(atkType === 'skill' && skillData) {
+      range = skillData.range * 2; // 아스키 비율 보정
+      dmg = skillData.dmg * 2;
+      name = skillData.skillName;
+      log(`${skillData.name}의 ${name}! ${skillData.effect}`);
+    }
+
+    let dist = Math.abs(defX - attX);
+    if(dist <= range) {
+      if(defPlayer.guard) {
+        log(`막았습니다! (${name} 방어)`);
+      } else {
+        let activeIdx = defPlayer === p1 ? p1Active : p2Active;
+        defPlayer.hp[activeIdx] -= dmg;
+        defPlayer.state = 'hit';
+        defPlayer.timer = 3;
+        // 넉백
+        if(defPlayer === p1) p1.x = Math.max(0, p1.x - 2);
+        else p2.x = Math.min(boardWidth - 5, p2.x + 2);
+      }
+    }
+  }
+
+  // 키보드 이벤트 맵핑
+  window.addEventListener('keydown', (e) => {
+    if(document.getElementById('screen-game').classList.contains('active') === false) return;
+    if(p1.hp[p1Active] <= 0 || p2.hp[p2Active] <= 0) return;
+
+    const key = e.key.toLowerCase();
+    let dist = p2.x - p1.x;
+
+    // --- P1 조작 ---
+    if(key === 'a' && p1.x > 0) p1.x--;
+    if(key === 'd' && dist > 4) p1.x++;
+    if(key === 's') { p1.guard = true; p1.state = 'guard'; }
+    if(key === 'f' && p1.state === 'idle') attemptAttack(p1, p2, p1.x, p2.x, 'punch');
+    if(key === 'g' && p1.state === 'idle') attemptAttack(p1, p2, p1.x, p2.x, 'kick');
+    if(key === 'h' && p1.state === 'idle') attemptAttack(p1, p2, p1.x, p2.x, 'skill', p1Team[p1Active]);
+    if(key === 't') { 
+      if(p1.hp[1 - p1Active] > 0) { p1Active = 1 - p1Active; log(`P1 태그! ${p1Team[p1Active].name} 등장!`); }
+    }
+
+    // --- P2 조작 ---
+    if(key === 'arrowleft' && dist > 4) p2.x--;
+    if(key === 'arrowright' && p2.x < boardWidth - 5) p2.x++;
+    if(key === 'arrowdown') { p2.guard = true; p2.state = 'guard'; }
+    if(key === 'i' && p2.state === 'idle') attemptAttack(p2, p1, p2.x, p1.x, 'punch');
+    if(key === 'o' && p2.state === 'idle') attemptAttack(p2, p1, p2.x, p1.x, 'kick');
+    if(key === 'p' && p2.state === 'idle') attemptAttack(p2, p1, p2.x, p1.x, 'skill', p2Team[p2Active]);
+    if(key === 'l') { 
+      if(p2.hp[1 - p2Active] > 0) { p2Active = 1 - p2Active; log(`P2 태그! ${p2Team[p2Active].name} 등장!`); }
+    }
+
+    gameLoop(); // 즉각 반응
+  });
+
+  window.addEventListener('keyup', (e) => {
+    const key = e.key.toLowerCase();
+    if(key === 's') { p1.guard = false; p1.state = 'idle'; }
+    if(key === 'arrowdown') { p2.guard = false; p2.state = 'idle'; }
+    gameLoop();
+  });
+</script>
+</body>
+</html>
