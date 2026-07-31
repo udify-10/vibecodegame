@@ -2,493 +2,482 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<title>Canvas Fighter - Arcade Edition</title>
+<title>PIXEL TEKKEN</title>
 <style>
+  @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
   body {
-    background-color: #000;
-    color: #fff;
-    font-family: 'Arial Black', Impact, sans-serif;
-    margin: 0;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    height: 100vh;
-    user-select: none;
-    overflow: hidden;
-  }
-
-  #game-wrapper {
-    position: relative;
-    width: 100%;
-    max-width: 1200px;
-    aspect-ratio: 16/9;
-    box-shadow: 0 0 50px rgba(255, 0, 0, 0.3);
-    border: 4px solid #333;
-    background: linear-gradient(180deg, #1a1a2e 0%, #16213e 60%, #0f3460 100%);
-  }
-
-  canvas {
-    display: block;
-    width: 100%;
-    height: 100%;
-  }
-
-  /* 확실한 빨간색 체력바 UI */
-  #ui-layer {
-    position: absolute;
-    top: 0; left: 0; width: 100%; height: 100%;
-    pointer-events: none;
-    display: none; /* 시작 시 표시됨 */
-  }
-
-  .health-container {
-    position: absolute;
-    top: 20px;
-    width: 40%;
-    height: 35px;
-    background-color: #222;
-    border: 3px solid #fff;
-    box-shadow: 0 0 15px #000;
+    background-color: #000; color: #fff; margin: 0;
+    font-family: 'Press Start 2P', cursive;
+    display: flex; flex-direction: column; align-items: center;
+    user-select: none; overflow: hidden;
   }
   
-  #p1-health-container { left: 30px; }
-  #p2-health-container { right: 30px; }
+  #game-wrapper {
+    position: relative; width: 100%; max-width: 1280px; aspect-ratio: 16 / 9;
+    margin-top: 2vh; border: 4px solid #fff; box-shadow: 0 0 20px #f00;
+    background-color: #111;
+  }
 
-  /* 실제 남은 체력 (빨간색) */
+  /* 픽셀 감성을 위한 마법의 CSS */
+  canvas {
+    display: block; width: 100%; height: 100%;
+    image-rendering: -moz-crisp-edges;
+    image-rendering: -webkit-optimize-contrast;
+    image-rendering: crisp-edges;
+    image-rendering: pixelated;
+  }
+
+  /* UI 레이어 */
+  #ui-layer {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    pointer-events: none; padding: 20px 40px; box-sizing: border-box; display: none;
+  }
+
+  /* 완벽한 빨간색 체력바 (노란색 지연 효과 포함) */
+  .health-container {
+    position: absolute; top: 25px; width: 38%; height: 25px;
+    background-color: #222; border: 3px solid #fff; box-shadow: 4px 4px 0 #000;
+  }
+  #p1-health-container { left: 40px; }
+  #p2-health-container { right: 40px; }
+
   .health-bar-current {
-    position: absolute;
-    top: 0;
-    height: 100%;
-    background-color: #ff0000; /* 강렬한 빨간색 */
-    box-shadow: inset 0 -10px 10px rgba(0,0,0,0.5);
-    transition: width 0.1s;
-    z-index: 2;
+    position: absolute; top: 0; height: 100%;
+    background-color: #e50000; /* 진한 아케이드 레드 */
+    z-index: 2; transition: width 0.1s;
   }
-  #p1-health { left: 0; }
-  #p2-health { right: 0; } /* P2는 오른쪽부터 깎임 */
-
-  /* 격투 게임 특유의 깎인 체력 지연 연출 (노란색) */
   .health-bar-delay {
-    position: absolute;
-    top: 0;
-    height: 100%;
-    background-color: #ffaa00;
-    transition: width 0.5s ease-out;
-    z-index: 1;
+    position: absolute; top: 0; height: 100%;
+    background-color: #ffcc00; /* 깎인 체력 딜레이 옐로우 */
+    z-index: 1; transition: width 0.5s ease-out;
   }
-  #p1-health-delay { left: 0; }
-  #p2-health-delay { right: 0; }
-
-  .name-tag {
-    position: absolute;
-    top: 60px;
-    font-size: 28px;
-    text-shadow: 2px 2px 0 #000;
-    letter-spacing: 2px;
-  }
-  #p1-name { left: 30px; color: #00ffff; }
-  #p2-name { right: 30px; color: #ff00ff; }
+  #p1-health, #p1-health-delay { left: 0; }
+  #p2-health, #p2-health-delay { right: 0; }
 
   #timer {
-    position: absolute;
-    top: 15px;
-    left: 50%;
-    transform: translateX(-50%);
-    font-size: 55px;
-    text-shadow: 0 0 15px #fff;
+    position: absolute; top: 15px; left: 50%; transform: translateX(-50%);
+    font-size: 32px; color: #ffeb3b; text-shadow: 4px 4px 0 #000;
   }
 
-  /* 메뉴 화면 */
+  .name-tag { position: absolute; top: 60px; font-size: 16px; text-shadow: 2px 2px 0 #000; }
+  #p1-name { left: 40px; color: #0ff; }
+  #p2-name { right: 40px; color: #f0f; text-align: right; }
+
+  .combo-text { position: absolute; top: 110px; font-size: 20px; color: #f30; text-shadow: 2px 2px 0 #fff; opacity: 0; }
+  #p1-combo-txt { left: 40px; }
+  #p2-combo-txt { right: 40px; }
+
+  /* 메뉴 및 캐릭터 선택 */
   #menu-layer {
     position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-    background: rgba(0,0,0,0.9);
-    display: flex; flex-direction: column; align-items: center; justify-content: center;
-    z-index: 10;
+    background: rgba(0,0,0,0.9); display: flex; flex-direction: column; 
+    align-items: center; justify-content: center; z-index: 10;
   }
-  h1 { font-size: 50px; color: #f00; text-shadow: 0 0 20px #f00; margin-bottom: 30px; }
-  .start-btn {
-    padding: 15px 50px; font-size: 30px; font-weight: bold; background: #f00;
-    color: #fff; border: 4px solid #fff; cursor: pointer; transition: 0.2s;
+  h1 { font-size: 3vw; color: #ff0055; text-shadow: 4px 4px 0 #fff; margin-bottom: 20px; text-align: center; line-height: 1.5; }
+  
+  #char-select {
+    display: grid; grid-template-columns: repeat(10, 1fr); gap: 8px;
+    width: 90%; max-height: 50%; overflow-y: auto; padding: 10px;
   }
-  .start-btn:hover { background: #fff; color: #f00; }
+  .char-btn {
+    background: #000; color: #fff; border: 2px solid #fff; padding: 10px 5px;
+    font-family: 'Press Start 2P', cursive; font-size: 10px; cursor: pointer; transition: 0.1s;
+  }
+  .char-btn:hover { background: #fff; color: #000; transform: scale(1.1); }
+  #status-msg { font-size: 16px; color: #0fd; margin-bottom: 20px; }
 
-  /* 게임 오버 텍스트 */
-  #ko-text {
-    position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%);
-    font-size: 120px; color: #ffeb3b; text-shadow: 0 0 30px #f00;
-    display: none; z-index: 5;
-  }
-
-  .controls { margin-top: 10px; color: #888; font-family: sans-serif; font-size: 14px; text-align: center; }
-  .controls b { color: #ddd; }
+  /* 조작법 */
+  .controls-info { margin-top: 15px; color: #aaa; font-size: 12px; text-align: center; line-height: 1.8; font-family: monospace; }
+  .controls-info b { color: #fff; }
 </style>
 </head>
 <body>
 
 <div id="game-wrapper">
-  <canvas id="gameCanvas" width="1200" height="675"></canvas>
+  <!-- 핵심: 가상 해상도를 320x180으로 낮춰 완벽한 픽셀 도트 생성 -->
+  <canvas id="gameCanvas" width="320" height="180"></canvas>
   
   <div id="ui-layer">
-    <!-- P1 체력바 -->
     <div id="p1-health-container" class="health-container">
-      <div id="p1-health-delay" class="health-bar-delay" style="width: 100%;"></div>
-      <div id="p1-health" class="health-bar-current" style="width: 100%;"></div>
+      <div id="p1-health-delay" class="health-bar-delay" style="width:100%;"></div>
+      <div id="p1-health" class="health-bar-current" style="width:100%;"></div>
     </div>
-    <!-- P2 체력바 -->
     <div id="p2-health-container" class="health-container">
-      <div id="p2-health-delay" class="health-bar-delay" style="width: 100%;"></div>
-      <div id="p2-health" class="health-bar-current" style="width: 100%;"></div>
+      <div id="p2-health-delay" class="health-bar-delay" style="width:100%;"></div>
+      <div id="p2-health" class="health-bar-current" style="width:100%;"></div>
     </div>
-    
     <div id="timer">99</div>
-    <div id="p1-name" class="name-tag">PLAYER 1</div>
-    <div id="p2-name" class="name-tag">PLAYER 2</div>
-    <div id="ko-text">K.O!</div>
+    <div id="p1-name" class="name-tag">P1</div>
+    <div id="p2-name" class="name-tag">P2</div>
+    <div id="p1-combo-txt" class="combo-text"></div>
+    <div id="p2-combo-txt" class="combo-text"></div>
   </div>
 
   <div id="menu-layer">
-    <h1>ARCADE FIGHTER</h1>
-    <button class="start-btn" onclick="startGame()">INSERT COIN (START)</button>
+    <h1>PIXEL TEKKEN<br>TAG TOURNAMENT</h1>
+    <div id="status-msg">P1: SELECT POINT CHAR</div>
+    <div id="char-select"></div>
   </div>
 </div>
 
-<div class="controls">
-  <b>[P1]</b> 이동: WASD | 공격: Z(펀치), X(킥) | <b>[P2]</b> 이동: 화살표 | 공격: I(펀치), O(킥)
+<div class="controls-info">
+  <b>[P1]</b> 이동: WASD | <b>연계기:</b> Z ➔ Z ➔ X | <b>띄우기:</b> S+Z | <b>태그:</b> T <br>
+  <b>[P2]</b> 이동: 방향키 | <b>연계기:</b> I ➔ I ➔ O | <b>띄우기:</b> ↓+I | <b>태그:</b> L
 </div>
 
 <script>
   const canvas = document.getElementById('gameCanvas');
   const ctx = canvas.getContext('2d');
   
-  // 시스템 변수
-  let requestID;
-  let gameActive = false;
-  let timer = 99;
-  let hitStopFrames = 0; // 타격 시 화면 정지(역경직)
-  let cameraShake = 0;
+  // 가상 해상도 설정
+  const VW = 320; 
+  const VH = 180;
+  const GROUND_Y = 150; // 바닥 Y좌표
 
-  const GROUND_Y = 550;
-  const GRAVITY = 1.2;
+  let reqId, timeLeft = 99, gameActive = false, hitStop = 0, cameraShake = 0;
+  let keys = {}, particles = [];
+  
+  // 20인 로스터 (색상으로 픽셀 캐릭터 개성 부여)
+  const roster = [
+    { name: "JIN", col: "#f00" }, { name: "KAZUYA", col: "#808" }, { name: "HEIHACHI", col: "#888" }, { name: "PAUL", col: "#f80" },
+    { name: "LAW", col: "#ff0" }, { name: "KING", col: "#d70" }, { name: "YOSHI", col: "#0f0" }, { name: "NINA", col: "#f0f" },
+    { name: "HWOARANG", col: "#f50" }, { name: "XIAOYU", col: "#f8b" }, { name: "BRYAN", col: "#555" }, { name: "STEVE", col: "#00f" },
+    { name: "ASUKA", col: "#0df" }, { name: "LILI", col: "#fff" }, { name: "DRAGUNOV", col: "#444" }, { name: "ALISA", col: "#f7a" },
+    { name: "FENG", col: "#c00" }, { name: "JACK-8", col: "#0f8" }, { name: "D.JIN", col: "#222" }, { name: "AKUMA", col: "#005" }
+  ];
 
-  const keys = {};
-  window.addEventListener('keydown', e => { keys[e.key.toLowerCase()] = true; });
-  window.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
+  let p1Team = [], p2Team = [], selectStep = 0;
 
-  // 화면 UI 업데이트 함수
-  function updateHealthUI() {
-    // P1
-    document.getElementById('p1-health').style.width = p1.hp + '%';
-    setTimeout(() => { document.getElementById('p1-health-delay').style.width = p1.hp + '%'; }, 300);
-    // P2
-    document.getElementById('p2-health').style.width = p2.hp + '%';
-    setTimeout(() => { document.getElementById('p2-health-delay').style.width = p2.hp + '%'; }, 300);
+  function initSelect() {
+    const grid = document.getElementById('char-select');
+    grid.innerHTML = '';
+    roster.forEach(c => {
+      let btn = document.createElement('button');
+      btn.className = 'char-btn';
+      btn.style.borderColor = c.col;
+      btn.innerText = c.name;
+      btn.onclick = () => selectChar(c);
+      grid.appendChild(btn);
+    });
   }
 
-  // 플레이어 클래스
-  class Fighter {
-    constructor(x, side, color) {
-      this.x = x;
-      this.y = GROUND_Y;
-      this.width = 70;
-      this.height = 160;
-      this.side = side;
-      this.dir = side === 1 ? 1 : -1;
-      this.color = color;
+  function selectChar(char) {
+    if(selectStep === 0) p1Team.push(char); else if(selectStep === 1) p1Team.push(char);
+    else if(selectStep === 2) p2Team.push(char); else if(selectStep === 3) p2Team.push(char);
+    
+    selectStep++;
+    const msgs = ["P1: SELECT TAG", "P2: SELECT POINT", "P2: SELECT TAG", "GET READY!"];
+    document.getElementById('status-msg').innerText = msgs[selectStep] || "GET READY!";
+    
+    if(selectStep > 3) setTimeout(startGame, 500);
+  }
+
+  function updateHealthUI() {
+    document.getElementById('p1-health').style.width = p1.hp + '%';
+    setTimeout(() => { if(document.getElementById('p1-health-delay')) document.getElementById('p1-health-delay').style.width = p1.hp + '%'; }, 400);
+    document.getElementById('p2-health').style.width = p2.hp + '%';
+    setTimeout(() => { if(document.getElementById('p2-health-delay')) document.getElementById('p2-health-delay').style.width = p2.hp + '%'; }, 400);
+  }
+
+  // --- 픽셀 캐릭터 클래스 ---
+  class PixelFighter {
+    constructor(x, side, team) {
+      this.x = x; this.y = GROUND_Y;
+      this.side = side; this.team = team; this.activeIdx = 0;
+      this.hp = [100, 100];
+      this.velX = 0; this.velY = 0; this.dir = side === 1 ? 1 : -1;
       
-      this.hp = 100;
-      this.velX = 0;
-      this.velY = 0;
-      
-      this.state = 'idle'; // idle, walk, jump, guard, attack, hit
-      this.frame = 0; // 애니메이션/판정용 프레임 타이머
-      
-      this.hitbox = null; // 공격 판정 박스
+      this.state = 'idle'; this.frame = 0; this.hitbox = null;
+      this.comboCount = 0; this.comboTimer = 0; this.tagCooldown = 0;
     }
+    
+    get char() { return this.team[this.activeIdx]; }
+    get hp() { return this.hpArr[this.activeIdx]; }
+    set hp(val) { this.hpArr[this.activeIdx] = val; }
+    get hpArr() { return this.hp_array || (this.hp_array = [100, 100]); }
 
     update(enemy) {
-      // 방향 전환 (공격 중이 아닐 때만 적을 바라봄)
-      if(this.state === 'idle' || this.state === 'walk') {
-        this.dir = enemy.x > this.x ? 1 : -1;
-      }
+      if(this.state === 'idle' || this.state === 'walk') this.dir = enemy.x > this.x ? 1 : -1;
 
-      // 물리 엔진 (점프 및 중력)
+      // 물리
       if(this.y < GROUND_Y) {
-        this.velY += GRAVITY;
-        this.y += this.velY;
-      } else {
-        this.y = GROUND_Y;
-        this.velY = 0;
-        if(this.state === 'jump') this.state = 'idle';
-      }
-
-      this.x += this.velX;
-      // 화면 밖 이탈 방지
-      this.x = Math.max(0, Math.min(canvas.width - this.width, this.x));
-
-      // 마찰력 감속 (땅에 있을 때)
-      if(this.y === GROUND_Y && this.state !== 'walk' && this.state !== 'hit') {
-        this.velX *= 0.8;
-      }
-
-      // 상태별 프레임 관리
-      if(this.state === 'attack') {
-        this.frame++;
-        // 프레임 5~10 구간에만 공격 판정(Hitbox) 생성
-        if(this.frame > 5 && this.frame < 12) {
-          this.hitbox = {
-            x: this.x + (this.dir === 1 ? this.width : -60),
-            y: this.y - 120,
-            w: 60, h: 40, dmg: 10
-          };
-        } else {
-          this.hitbox = null; // 판정 종료
+        this.velY += 0.8; this.y += this.velY;
+        if(this.state !== 'hit' && this.state !== 'airHit' && this.state !== 'launcher') {
+          if(this.velY < 0) this.state = 'jump';
         }
-        // 공격 모션 종료
-        if(this.frame > 25) this.state = 'idle';
-      } 
-      else if(this.state === 'hit') {
-        this.frame++;
-        if(this.frame > 20) this.state = 'idle'; // 경직 끝
-      }
-      else {
-        this.frame = 0;
-        this.hitbox = null;
-      }
-    }
-
-    attack() {
-      if(this.state === 'idle' || this.state === 'walk') {
-        this.state = 'attack';
-        this.frame = 0;
-        this.velX = 0; // 공격 시 멈춤
-      }
-    }
-
-    takeDamage(dmg, knockbackDir) {
-      if(this.state === 'guard') {
-        // 가드 데미지(칩 데미지)
-        this.hp -= dmg * 0.2;
-        this.velX = knockbackDir * 3;
       } else {
-        this.hp -= dmg;
-        this.state = 'hit';
-        this.frame = 0;
-        this.velX = knockbackDir * 12; // 넉백
-        this.velY = -5; // 살짝 뜸
+        this.y = GROUND_Y; this.velY = 0;
+        if(this.state === 'jump' || this.state === 'airHit') this.state = 'idle';
       }
-      this.hp = Math.max(0, this.hp);
+      
+      this.x += this.velX; 
+      this.x = Math.max(10, Math.min(VW - 10, this.x)); // 화면 제한 (작은 해상도 기준)
+      
+      // 마찰력
+      if(this.y === GROUND_Y && (this.state === 'idle' || this.state === 'guard')) this.velX *= 0.6;
+      if(this.tagCooldown > 0) this.tagCooldown--;
+
+      // 프레임 진행
+      if(this.state !== 'idle' && this.state !== 'walk' && this.state !== 'jump' && this.state !== 'guard') {
+        this.frame++;
+        
+        let endFrame = 20; 
+        if(this.state === 'punch1') endFrame = 12;
+        if(this.state === 'punch2') endFrame = 15;
+        if(this.state === 'stringFinish') endFrame = 35;
+        if(this.state === 'launcher') endFrame = 25;
+        if(this.state === 'hit' || this.state === 'airHit') endFrame = 15;
+
+        if(this.frame >= endFrame) {
+          if(this.y === GROUND_Y) this.state = 'idle';
+          this.hitbox = null;
+        } else {
+          // 공격 판정 생성
+          if(this.frame > 4 && this.frame < 10 && !['hit','airHit'].includes(this.state)) this.generateHitbox();
+          else this.hitbox = null;
+        }
+      } else { this.frame = 0; this.hitbox = null; }
+
+      // 콤보 UI
+      if(this.comboTimer > 0) {
+        this.comboTimer--;
+        if(this.comboTimer === 0) this.comboCount = 0;
+      }
+      let comboUI = document.getElementById(`p${this.side === 1 ? 2 : 1}-combo-txt`);
+      if(this.comboCount > 1) { comboUI.innerText = `${this.comboCount} HITS!`; comboUI.style.opacity = 1; } 
+      else { comboUI.style.opacity = 0; }
+    }
+
+    generateHitbox() {
+      // 320x180 해상도에 맞춘 힛박스 수치
+      switch(this.state) {
+        case 'punch1': this.hitbox = { x: this.x + (this.dir===1?6:-16), y: this.y - 25, w: 10, h: 6, dmg: 4, hitStop: 3, launch: false }; break;
+        case 'punch2': this.hitbox = { x: this.x + (this.dir===1?8:-18), y: this.y - 25, w: 10, h: 6, dmg: 6, hitStop: 4, launch: false }; break;
+        case 'stringFinish': this.hitbox = { x: this.x + (this.dir===1?0:-20), y: this.y - 20, w: 20, h: 15, dmg: 12, hitStop: 8, launch: true }; break;
+        case 'launcher': this.hitbox = { x: this.x + (this.dir===1?4:-14), y: this.y - 35, w: 10, h: 25, dmg: 8, hitStop: 6, launch: true }; break;
+      }
+    }
+
+    inputCommand(btn, isDown) {
+      if(this.state === 'guard' || this.y !== GROUND_Y) return;
+
+      if(isDown && btn === 'Z') {
+        if(this.state === 'idle' || this.state === 'walk') { this.state = 'launcher'; this.frame = 0; }
+        return;
+      }
+
+      // 연계기 (Z -> Z -> X)
+      if(btn === 'Z') {
+         if(this.state === 'idle' || this.state === 'walk') { this.state = 'punch1'; this.frame = 0; } 
+         else if(this.state === 'punch1' && this.frame > 3 && this.frame < 15) { this.state = 'punch2'; this.frame = 0; }
+      }
+      else if(btn === 'X') {
+         if(this.state === 'punch2' && this.frame > 3 && this.frame < 15) { 
+             this.state = 'stringFinish'; this.frame = 0; 
+             this.velX = this.dir * 4; this.velY = -3; 
+         } 
+         else if(this.state === 'idle' || this.state === 'walk') { this.state = 'punch1'; this.frame = 0; } // 기본 킥 대용
+      }
+    }
+
+    takeDamage(dmg, dir, hitStopFrames, launch, attacker) {
+      if(this.state === 'guard' && !launch && this.y === GROUND_Y) {
+        this.hp = Math.max(0, this.hp - dmg * 0.1); this.velX = dir * 1; hitStop = 2;
+      } else {
+        this.hp = Math.max(0, this.hp - dmg);
+        if(launch || this.y < GROUND_Y) { // 저글링
+          this.state = 'airHit'; this.frame = 0; this.velY = -5; this.velX = dir * 1.5;
+          createPixelParticles(this.x, this.y - 20, '#ff0', 10);
+        } else {
+          this.state = 'hit'; this.frame = 0; this.velX = dir * 3; this.velY = -1;
+          createPixelParticles(this.x, this.y - 20, '#f00', 10);
+        }
+        hitStop = hitStopFrames; cameraShake = hitStopFrames;
+        attacker.comboCount++; attacker.comboTimer = 90;
+      }
       updateHealthUI();
     }
 
+    // ★ 절차적 픽셀 아트 렌더링 ★
     draw() {
-      ctx.save();
-      ctx.translate(this.x, this.y);
+      ctx.save(); ctx.translate(this.x, this.y);
 
       // 그림자
       ctx.fillStyle = 'rgba(0,0,0,0.5)';
-      ctx.beginPath();
-      ctx.ellipse(this.width/2, 0, 40, 10, 0, 0, Math.PI*2);
-      ctx.fill();
+      ctx.fillRect(-6, 0, 12, 2);
 
-      // 캐릭터 몸통 렌더링
-      ctx.fillStyle = this.state === 'hit' ? '#fff' : this.color;
-      
-      // 상태에 따른 외형 변화 (아주 단순화된 애니메이션)
-      let tilt = 0;
-      if(this.state === 'walk') tilt = 10 * this.dir;
-      if(this.state === 'attack') tilt = 20 * this.dir;
-      if(this.state === 'guard') tilt = -10 * this.dir;
-      if(this.state === 'hit') tilt = -30 * this.dir;
+      let col = this.state === 'hit' || this.state === 'airHit' ? '#fff' : this.char.col;
+      ctx.fillStyle = col;
 
-      // 몸통
-      ctx.fillRect(tilt, -this.height, this.width, this.height);
-      
-      // 가드 이펙트
-      if(this.state === 'guard') {
-        ctx.strokeStyle = '#0ff';
-        ctx.lineWidth = 5;
-        ctx.strokeRect(tilt - 10, -this.height - 10, this.width + 20, this.height + 20);
+      // 애니메이션 오프셋 설정
+      let hX = 0, hY = -28, bX = -4, bY = -22, bW = 8, bH = 12; // Head, Body
+      let a1X = -2, a1Y = -20, a2X = 2, a2Y = -20; // Arms
+      let l1X = -3, l1Y = -10, l2X = 1, l2Y = -10; // Legs
+
+      if(this.state === 'walk') {
+         let step = Math.sin(Date.now() / 100) * 2;
+         hY += Math.abs(step); l1X -= step; l2X += step; a1X += step; a2X -= step;
       }
+      else if(this.state === 'guard') { bX -= 2*this.dir; a1X += 4*this.dir; a2X += 4*this.dir; hX -= 2*this.dir; }
+      else if(this.state === 'punch1') { a2X += 8*this.dir; bX += 2*this.dir; hX += 2*this.dir; }
+      else if(this.state === 'punch2') { a1X += 10*this.dir; bX += 4*this.dir; hX += 3*this.dir; }
+      else if(this.state === 'stringFinish') { // 스핀킥 (몸이 눕는 도트 연출)
+         ctx.rotate((this.frame * 30 * this.dir) * Math.PI / 180);
+         bX = -6; bY = -14; bW = 12; bH = 8; hY = -14; hX = 6*this.dir; l1X = -12*this.dir; l2X = -12*this.dir; a1X=0; a2X=0;
+      }
+      else if(this.state === 'launcher') { bY = -26; hY = -34; a1Y = -30; a2Y = -30; a2X += 6*this.dir; }
+      else if(this.state === 'hit' || this.state === 'airHit') { hX -= 4*this.dir; bX -= 2*this.dir; a1X -= 4*this.dir; a2X -= 4*this.dir; l1X -= 2*this.dir; }
+      else if(this.state === 'jump') { l1Y -= 4; l2Y -= 4; a1Y -= 4; a2Y -= 4; }
 
-      // 눈(방향 표시)
-      ctx.fillStyle = '#fff';
-      ctx.fillRect(tilt + (this.dir === 1 ? this.width - 20 : 5), -this.height + 20, 15, 15);
+      // 픽셀 사각형 그리기 (머리, 몸, 팔, 다리)
+      ctx.fillRect(hX - 3, hY, 6, 6); // Head
+      ctx.fillRect(bX, bY, bW, bH);   // Body
+      ctx.fillStyle = '#aaa'; // 팔다리는 약간 어둡게
+      ctx.fillRect(a1X - 2, a1Y, 4, 6); // Arm 1
+      ctx.fillRect(a2X - 2, a2Y, 4, 6); // Arm 2
+      ctx.fillRect(l1X - 2, l1Y, 4, 10); // Leg 1
+      ctx.fillRect(l2X - 2, l2Y, 4, 10); // Leg 2
+      
+      // 눈 포인트 (방향)
+      ctx.fillStyle = '#0ff'; ctx.fillRect(hX + (this.dir===1?1:-2), hY + 1, 2, 2);
 
       ctx.restore();
 
-      // 디버그용 힛박스 (타격감을 위해 번쩍이는 효과로 재활용)
-      if(this.hitbox) {
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
-        ctx.fillRect(this.hitbox.x, this.hitbox.y, this.hitbox.w, this.hitbox.h);
-      }
+      // 힛박스 (디버그겸 이펙트)
+      if(this.hitbox) { ctx.fillStyle = 'rgba(255,255,255,0.7)'; ctx.fillRect(this.hitbox.x, this.hitbox.y, this.hitbox.w, this.hitbox.h); }
     }
   }
 
-  let p1, p2;
-  let particles = [];
-
-  function startGame() {
-    document.getElementById('menu-layer').style.display = 'none';
-    document.getElementById('ui-layer').style.display = 'block';
-    document.getElementById('ko-text').style.display = 'none';
-    
-    // 캐릭터 생성 (빨강 vs 파랑)
-    p1 = new Fighter(200, 1, '#ff3333');
-    p2 = new Fighter(900, 2, '#3333ff');
-    
-    timer = 99;
-    gameActive = true;
-    updateHealthUI();
-    
-    // 1초마다 타이머 감소
-    const timerInterval = setInterval(() => {
-      if(!gameActive) clearInterval(timerInterval);
-      else if(timer > 0) {
-        timer--;
-        document.getElementById('timer').innerText = timer;
-      }
-    }, 1000);
-
-    requestID = requestAnimationFrame(gameLoop);
+  // 픽셀 파티클 시스템
+  function createPixelParticles(x, y, color, count) {
+    for(let i=0; i<count; i++) particles.push({ x: x, y: y, vx: (Math.random()-0.5)*4, vy: (Math.random()-0.5)*4-1, life: 1.0, col: color });
   }
 
-  // 조작 처리
-  function handleInput() {
-    const SPEED = 8;
-    
-    // P1 (WASD, Z, X)
-    p1.state = (p1.state === 'idle' || p1.state === 'walk' || p1.state === 'guard') ? 'idle' : p1.state;
-    if(p1.state === 'idle') {
-      if(keys['s']) p1.state = 'guard';
-      else {
-        if(keys['a']) { p1.velX = -SPEED; p1.state = 'walk'; }
-        if(keys['d']) { p1.velX = SPEED; p1.state = 'walk'; }
-        if(keys['w'] && p1.y === GROUND_Y) { p1.velY = -22; p1.state = 'jump'; }
-        if(keys['z'] || keys['x']) p1.attack();
-      }
-    }
-
-    // P2 (방향키, I, O)
-    p2.state = (p2.state === 'idle' || p2.state === 'walk' || p2.state === 'guard') ? 'idle' : p2.state;
-    if(p2.state === 'idle') {
-      if(keys['arrowdown']) p2.state = 'guard';
-      else {
-        if(keys['arrowleft']) { p2.velX = -SPEED; p2.state = 'walk'; }
-        if(keys['arrowright']) { p2.velX = SPEED; p2.state = 'walk'; }
-        if(keys['arrowup'] && p2.y === GROUND_Y) { p2.velY = -22; p2.state = 'jump'; }
-        if(keys['i'] || keys['o']) p2.attack();
-      }
-    }
-  }
-
-  // 충돌 판정 (Hitbox vs Hurtbox)
-  function checkHit(attacker, defender) {
-    if(!attacker.hitbox) return;
-    
-    let box = attacker.hitbox;
-    // 방어자의 영역(Hurtbox)은 현재 x, y를 기준으로 계산
-    if(box.x < defender.x + defender.width &&
-       box.x + box.w > defender.x &&
-       box.y < defender.y &&
-       box.y + box.h > defender.y - defender.height) 
-    {
-       defender.takeDamage(box.dmg, attacker.dir);
-       attacker.hitbox = null; // 다단히트 방지
-       
-       // 타격감 연출 (역경직과 카메라 흔들림)
-       hitStopFrames = 5;
-       cameraShake = 10;
-       createParticles(box.x + box.w/2, box.y + box.h/2);
-    }
-  }
-
-  // 타격 이펙트(파티클) 생성
-  function createParticles(x, y) {
-    for(let i=0; i<15; i++) {
-      particles.push({
-        x: x, y: y,
-        vx: (Math.random() - 0.5) * 15,
-        vy: (Math.random() - 0.5) * 15,
-        life: 1.0
-      });
-    }
-  }
-
-  function drawParticles() {
+  function renderParticles() {
     for(let i=particles.length-1; i>=0; i--) {
-      let p = particles[i];
-      p.x += p.vx;
-      p.y += p.vy;
-      p.life -= 0.05;
-      if(p.life <= 0) {
-        particles.splice(i, 1);
-        continue;
-      }
-      ctx.globalAlpha = p.life;
-      ctx.fillStyle = '#ffaa00';
-      ctx.fillRect(p.x, p.y, 8, 8);
+      let p = particles[i]; p.x += p.vx; p.y += p.vy; p.life -= 0.05;
+      if(p.life <= 0) { particles.splice(i, 1); continue; }
+      ctx.globalAlpha = p.life; ctx.fillStyle = p.col; ctx.fillRect(p.x, p.y, 2, 2); // 2x2 픽셀 파티클
     }
     ctx.globalAlpha = 1.0;
   }
 
-  // 메인 게임 루프
-  function gameLoop() {
-    if(!gameActive) return;
+  let p1, p2;
 
-    // 화면 지우기 (배경 그리기)
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+  function startGame() {
+    document.getElementById('menu-layer').style.display = 'none';
+    document.getElementById('ui-layer').style.display = 'block';
     
-    // 바닥 선 그리기
-    ctx.strokeStyle = '#444';
-    ctx.lineWidth = 10;
-    ctx.beginPath();
-    ctx.moveTo(0, GROUND_Y);
-    ctx.lineTo(canvas.width, GROUND_Y);
-    ctx.stroke();
-
-    ctx.save();
+    p1 = new PixelFighter(60, 1, p1Team); 
+    p2 = new PixelFighter(260, 2, p2Team); p2.dir = -1;
     
-    // 1. 역경직 (Hit Stop) 처리
-    if(hitStopFrames > 0) {
-      hitStopFrames--;
-    } else {
-      // 역경직이 아닐 때만 로직 업데이트
-      handleInput();
-      p1.update(p2);
-      p2.update(p1);
-      
-      checkHit(p1, p2);
-      checkHit(p2, p1);
-    }
-
-    // 2. 카메라 흔들림 (Screen Shake)
-    if(cameraShake > 0) {
-      ctx.translate((Math.random()-0.5)*cameraShake, (Math.random()-0.5)*cameraShake);
-      cameraShake--;
-    }
-
-    // 3. 렌더링
-    p1.draw();
-    p2.draw();
-    drawParticles();
+    timeLeft = 99; hitStop = 0; keys = {}; gameActive = true; particles = [];
     
-    ctx.restore();
+    document.getElementById('p1-name').innerText = p1.char.name;
+    document.getElementById('p2-name').innerText = p2.char.name;
+    updateHealthUI();
+    
+    const timerInt = setInterval(() => {
+      if(!gameActive) clearInterval(timerInt);
+      else if(timeLeft > 0 && p1.hp > 0 && p2.hp > 0) { timeLeft--; document.getElementById('timer').innerText = timeLeft; }
+    }, 1000);
+    
+    reqId = requestAnimationFrame(loop);
+  }
 
-    // 4. 게임 오버 판정
-    if(p1.hp <= 0 || p2.hp <= 0 || timer <= 0) {
-      document.getElementById('ko-text').style.display = 'block';
-      gameActive = false;
-      
-      // 3초 후 메뉴로 복귀
-      setTimeout(() => {
-        document.getElementById('menu-layer').style.display = 'flex';
-        document.getElementById('ui-layer').style.display = 'none';
-      }, 3000);
-    } else {
-      requestID = requestAnimationFrame(gameLoop);
+  function checkCollision(attacker, defender) {
+    if(!attacker.hitbox) return;
+    let h = attacker.hitbox;
+    if(h.x < defender.x + 6 && h.x + h.w > defender.x - 6 && h.y < defender.y && h.y + h.h > defender.y - 30) {
+       defender.takeDamage(h.dmg, attacker.dir, h.hitStop, h.launch, attacker);
+       attacker.hitbox = null; 
     }
   }
+
+  window.addEventListener('keydown', e => { keys[e.key.toLowerCase()] = true; });
+  window.addEventListener('keyup', e => { 
+    let k = e.key.toLowerCase(); keys[k] = false; 
+    if(!gameActive || hitStop > 0) return;
+    
+    // 공격 커맨드
+    if(k === 'z') p1.inputCommand('Z', keys['s']);
+    if(k === 'x') p1.inputCommand('X', keys['s']);
+    if(k === 'i') p2.inputCommand('Z', keys['arrowdown']);
+    if(k === 'o') p2.inputCommand('X', keys['arrowdown']);
+
+    // 태그 시스템
+    if(k === 't' && p1.hpArr[1-p1.activeIdx] > 0 && p1.y === GROUND_Y && p1.state === 'idle' && p1.tagCooldown === 0) {
+      p1.activeIdx = 1 - p1.activeIdx; p1.tagCooldown = 100; p1.comboCount = 0;
+      createPixelParticles(p1.x, p1.y - 15, '#fff', 20);
+      document.getElementById('p1-name').innerText = p1.char.name; updateHealthUI();
+    }
+    if(k === 'l' && p2.hpArr[1-p2.activeIdx] > 0 && p2.y === GROUND_Y && p2.state === 'idle' && p2.tagCooldown === 0) {
+      p2.activeIdx = 1 - p2.activeIdx; p2.tagCooldown = 100; p2.comboCount = 0;
+      createPixelParticles(p2.x, p2.y - 15, '#fff', 20);
+      document.getElementById('p2-name').innerText = p2.char.name; updateHealthUI();
+    }
+  });
+
+  function handleMovement() {
+    const SPEED = 1.5; // 저해상도 맞춤 속도
+    // P1
+    if(keys['s']) p1.state = 'guard';
+    else if(p1.state === 'idle' || p1.state === 'walk') {
+      p1.state = 'idle';
+      if(keys['a']) { p1.velX = -SPEED; p1.state = 'walk'; }
+      if(keys['d']) { p1.velX = SPEED; p1.state = 'walk'; }
+      if(keys['w'] && p1.y === GROUND_Y) { p1.velY = -6; p1.state = 'jump'; } // 점프
+    }
+    // P2
+    if(keys['arrowdown']) p2.state = 'guard';
+    else if(p2.state === 'idle' || p2.state === 'walk') {
+      p2.state = 'idle';
+      if(keys['arrowleft']) { p2.velX = -SPEED; p2.state = 'walk'; }
+      if(keys['arrowright']) { p2.velX = SPEED; p2.state = 'walk'; }
+      if(keys['arrowup'] && p2.y === GROUND_Y) { p2.velY = -6; p2.state = 'jump'; }
+    }
+  }
+
+  function drawPixelBackground() {
+    ctx.fillStyle = '#223'; ctx.fillRect(0, 0, VW, VH);
+    // 도트 배경 
+    ctx.fillStyle = '#112'; ctx.fillRect(0, GROUND_Y - 20, VW, 20);
+    ctx.fillStyle = '#333'; ctx.fillRect(0, GROUND_Y, VW, VH - GROUND_Y);
+    ctx.fillStyle = '#444'; ctx.fillRect(0, GROUND_Y, VW, 2);
+  }
+
+  function loop() {
+    if(!gameActive) return;
+    
+    ctx.save();
+    // 타격 시 화면 흔들림
+    if(cameraShake > 0) {
+      ctx.translate((Math.random()-0.5)*4, (Math.random()-0.5)*4);
+      cameraShake--;
+    }
+    
+    drawPixelBackground();
+
+    // 역경직(타격감)
+    if(hitStop > 0) hitStop--;
+    else if(p1.hp > 0 && p2.hp > 0 && timeLeft > 0) {
+      handleMovement(); p1.update(p2); p2.update(p1); checkCollision(p1, p2); checkCollision(p2, p1);
+    }
+    
+    renderParticles(); p1.draw(); p2.draw();
+    ctx.restore();
+
+    // 게임 오버
+    if(p1.hp <= 0 || p2.hp <= 0 || timeLeft <= 0) {
+       ctx.fillStyle = 'rgba(0,0,0,0.7)'; ctx.fillRect(0,0,VW, VH);
+       ctx.fillStyle = '#ffeb3b'; ctx.font = '20px "Press Start 2P"'; ctx.textAlign = 'center';
+       let msg = timeLeft <= 0 ? "TIME UP" : (p1.hp <= 0 ? "P2 WINS" : "P1 WINS");
+       ctx.fillText("K.O!", VW/2, VH/2 - 10); ctx.font = '10px "Press Start 2P"'; ctx.fillText(msg, VW/2, VH/2 + 20);
+    } else reqId = requestAnimationFrame(loop);
+  }
+
+  initSelect();
 </script>
 </body>
 </html>
