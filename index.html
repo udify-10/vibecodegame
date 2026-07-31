@@ -2,426 +2,493 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<title>CANVAS TEKKEN - COMBO SYSTEM</title>
+<title>Canvas Fighter - Arcade Edition</title>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Teko:wght@500;700&display=swap');
-
-  body { 
-    background-color: #050505; color: #fff; 
-    font-family: 'Teko', sans-serif; margin: 0; 
-    display: flex; flex-direction: column; align-items: center; 
-    user-select: none; overflow: hidden;
-  }
-  
-  #game-container {
-    width: 100%; max-width: 1280px; aspect-ratio: 16 / 9;
-    background: radial-gradient(circle at 50% 30%, #1a1a25 0%, #000000 100%);
-    position: relative; box-shadow: 0 0 50px rgba(255, 50, 50, 0.2);
-    margin-top: 2vh; overflow: hidden; border: 2px solid #333;
+  body {
+    background-color: #000;
+    color: #fff;
+    font-family: 'Arial Black', Impact, sans-serif;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    user-select: none;
+    overflow: hidden;
   }
 
-  canvas { display: block; width: 100%; height: 100%; }
+  #game-wrapper {
+    position: relative;
+    width: 100%;
+    max-width: 1200px;
+    aspect-ratio: 16/9;
+    box-shadow: 0 0 50px rgba(255, 0, 0, 0.3);
+    border: 4px solid #333;
+    background: linear-gradient(180deg, #1a1a2e 0%, #16213e 60%, #0f3460 100%);
+  }
 
-  #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; display: none; padding: 20px 40px; box-sizing: border-box; }
-  .hp-wrapper { width: 38%; position: absolute; top: 30px; }
-  .hp-bar-bg { width: 100%; height: 25px; background: rgba(0,0,0,0.8); border: 2px solid #aaa; border-radius: 4px; box-shadow: 0 0 15px #000; overflow: hidden; position: relative; }
-  .hp-bar-fill { height: 100%; background: linear-gradient(90deg, #ff0055, #ffcc00); transition: width 0.1s ease-out; width: 100%; }
+  canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+
+  /* 확실한 빨간색 체력바 UI */
+  #ui-layer {
+    position: absolute;
+    top: 0; left: 0; width: 100%; height: 100%;
+    pointer-events: none;
+    display: none; /* 시작 시 표시됨 */
+  }
+
+  .health-container {
+    position: absolute;
+    top: 20px;
+    width: 40%;
+    height: 35px;
+    background-color: #222;
+    border: 3px solid #fff;
+    box-shadow: 0 0 15px #000;
+  }
   
-  #p1-hp-wrap { left: 40px; transform: skewX(-15deg); }
-  #p2-hp-wrap { right: 40px; transform: skewX(15deg); }
-  #p2-hp-wrap .hp-bar-fill { float: right; background: linear-gradient(-90deg, #0055ff, #00ffcc); }
+  #p1-health-container { left: 30px; }
+  #p2-health-container { right: 30px; }
 
-  #timer { position: absolute; top: 15px; left: 50%; transform: translateX(-50%); font-size: 60px; font-weight: 700; color: #fff; text-shadow: 0 0 10px #fff, 0 0 20px #0ff; line-height: 1; }
-  .names { position: absolute; top: 60px; font-size: 28px; font-weight: 700; text-shadow: 2px 2px 4px #000; letter-spacing: 2px; }
-  #p1-name { left: 40px; color: #ffcc00; }
-  #p2-name { right: 40px; color: #00ffcc; text-align: right; }
+  /* 실제 남은 체력 (빨간색) */
+  .health-bar-current {
+    position: absolute;
+    top: 0;
+    height: 100%;
+    background-color: #ff0000; /* 강렬한 빨간색 */
+    box-shadow: inset 0 -10px 10px rgba(0,0,0,0.5);
+    transition: width 0.1s;
+    z-index: 2;
+  }
+  #p1-health { left: 0; }
+  #p2-health { right: 0; } /* P2는 오른쪽부터 깎임 */
 
-  .combo { position: absolute; top: 180px; font-size: 60px; color: #ff3300; font-weight: bold; text-shadow: 2px 2px 0 #fff, 0 0 30px #f00; opacity: 0; transition: opacity 0.1s, transform 0.1s; transform: scale(1.5); }
-  #p1-combo { left: 50px; }
-  #p2-combo { right: 50px; text-align: right; }
+  /* 격투 게임 특유의 깎인 체력 지연 연출 (노란색) */
+  .health-bar-delay {
+    position: absolute;
+    top: 0;
+    height: 100%;
+    background-color: #ffaa00;
+    transition: width 0.5s ease-out;
+    z-index: 1;
+  }
+  #p1-health-delay { left: 0; }
+  #p2-health-delay { right: 0; }
 
-  #menu-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10; backdrop-filter: blur(5px); }
-  h1 { font-size: 5vw; color: #fff; margin: 0 0 20px 0; text-shadow: 0 0 20px #f00, 0 0 40px #f00; font-style: italic; }
-  #char-select { display: grid; grid-template-columns: repeat(10, 1fr); gap: 10px; width: 90%; max-height: 60%; overflow-y: auto; padding: 20px; }
-  .char-btn { background: #1a1a24; color: #fff; border: 2px solid #444; padding: 15px 5px; cursor: pointer; font-family: 'Teko', sans-serif; font-size: 22px; font-weight: bold; transition: all 0.2s; border-radius: 4px; box-shadow: 0 4px 6px rgba(0,0,0,0.5); }
-  .char-btn:hover { background: #fff; color: #000; transform: translateY(-3px) scale(1.05); box-shadow: 0 0 15px currentColor; }
-  #status-msg { font-size: 36px; margin-bottom: 10px; color: #0fd; text-shadow: 0 0 10px #0fd; }
-  
-  #game-over-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 20; }
-  #result-msg { font-size: 100px; color: #ff0; text-shadow: 0 0 30px #f00; margin-bottom: 30px; font-weight: bold; }
-  .btn-restart { padding: 15px 40px; font-size: 30px; background: transparent; color: #fff; border: 3px solid #fff; cursor: pointer; font-family: 'Teko', sans-serif; font-weight: bold; transition: 0.3s; }
-  .btn-restart:hover { background: #fff; color: #000; box-shadow: 0 0 20px #fff; }
+  .name-tag {
+    position: absolute;
+    top: 60px;
+    font-size: 28px;
+    text-shadow: 2px 2px 0 #000;
+    letter-spacing: 2px;
+  }
+  #p1-name { left: 30px; color: #00ffff; }
+  #p2-name { right: 30px; color: #ff00ff; }
 
-  .controls-info { margin-top: 15px; color: #888; font-size: 16px; text-align: center; font-family: sans-serif; line-height: 1.5; }
-  .controls-info b { color: #fff; }
+  #timer {
+    position: absolute;
+    top: 15px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 55px;
+    text-shadow: 0 0 15px #fff;
+  }
+
+  /* 메뉴 화면 */
+  #menu-layer {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.9);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    z-index: 10;
+  }
+  h1 { font-size: 50px; color: #f00; text-shadow: 0 0 20px #f00; margin-bottom: 30px; }
+  .start-btn {
+    padding: 15px 50px; font-size: 30px; font-weight: bold; background: #f00;
+    color: #fff; border: 4px solid #fff; cursor: pointer; transition: 0.2s;
+  }
+  .start-btn:hover { background: #fff; color: #f00; }
+
+  /* 게임 오버 텍스트 */
+  #ko-text {
+    position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%);
+    font-size: 120px; color: #ffeb3b; text-shadow: 0 0 30px #f00;
+    display: none; z-index: 5;
+  }
+
+  .controls { margin-top: 10px; color: #888; font-family: sans-serif; font-size: 14px; text-align: center; }
+  .controls b { color: #ddd; }
 </style>
 </head>
 <body>
 
-<div id="game-container">
-  <canvas id="gameCanvas" width="1280" height="720"></canvas>
+<div id="game-wrapper">
+  <canvas id="gameCanvas" width="1200" height="675"></canvas>
+  
   <div id="ui-layer">
-    <div id="p1-hp-wrap" class="hp-wrapper"><div id="p1-hp-fill" class="hp-bar-fill"></div></div>
-    <div id="p2-hp-wrap" class="hp-wrapper"><div id="p2-hp-fill" class="hp-bar-fill"></div></div>
+    <!-- P1 체력바 -->
+    <div id="p1-health-container" class="health-container">
+      <div id="p1-health-delay" class="health-bar-delay" style="width: 100%;"></div>
+      <div id="p1-health" class="health-bar-current" style="width: 100%;"></div>
+    </div>
+    <!-- P2 체력바 -->
+    <div id="p2-health-container" class="health-container">
+      <div id="p2-health-delay" class="health-bar-delay" style="width: 100%;"></div>
+      <div id="p2-health" class="health-bar-current" style="width: 100%;"></div>
+    </div>
+    
     <div id="timer">99</div>
-    <div id="p1-name" class="names">P1</div>
-    <div id="p2-name" class="names">P2</div>
-    <div id="p1-combo" class="combo">2 HITS!</div>
-    <div id="p2-combo" class="combo">2 HITS!</div>
+    <div id="p1-name" class="name-tag">PLAYER 1</div>
+    <div id="p2-name" class="name-tag">PLAYER 2</div>
+    <div id="ko-text">K.O!</div>
   </div>
+
   <div id="menu-layer">
-    <h1>IRON FIST: COMBO EDITION</h1>
-    <div id="status-msg">PLAYER 1 - SELECT POINT CHARACTER</div>
-    <div id="char-select"></div>
-  </div>
-  <div id="game-over-layer">
-    <div id="result-msg">K.O!</div>
-    <button class="btn-restart" onclick="returnToMenu()">RETURN TO MENU</button>
+    <h1>ARCADE FIGHTER</h1>
+    <button class="start-btn" onclick="startGame()">INSERT COIN (START)</button>
   </div>
 </div>
 
-<div class="controls-info">
-  <b>[P1]</b> 이동/가드: WASD | 연계기: Z ➔ Z ➔ X | 띄우기: S+Z | 대쉬펀치: (앞)+Z | 스핀킥: (앞)+X | 스킬: C | 태그: T<br>
-  <b>[P2]</b> 이동/가드: 방향키 | 연계기: I ➔ I ➔ O | 띄우기: ↓+I | 대쉬펀치: (앞)+I | 스핀킥: (앞)+O | 스킬: P | 태그: L
+<div class="controls">
+  <b>[P1]</b> 이동: WASD | 공격: Z(펀치), X(킥) | <b>[P2]</b> 이동: 화살표 | 공격: I(펀치), O(킥)
 </div>
 
 <script>
   const canvas = document.getElementById('gameCanvas');
   const ctx = canvas.getContext('2d');
   
-  let reqId, timeLeft = 99, gameActive = false, camera = { x: 0, y: 0, shakeTime: 0, shakeMag: 0 }, hitStop = 0;
-  let p1, p2, p1Team = [], p2Team = [], selectStep = 0, particles = [], projectiles = [], keys = {};
-  const GROUND_Y = 600;
+  // 시스템 변수
+  let requestID;
+  let gameActive = false;
+  let timer = 99;
+  let hitStopFrames = 0; // 타격 시 화면 정지(역경직)
+  let cameraShake = 0;
 
-  const roster = [
-    { name: "JIN", hex: "#dc2626", type: "burst", dmg: 15 }, { name: "KAZUYA", hex: "#9333ea", type: "laser", dmg: 12 },
-    { name: "HEIHACHI", hex: "#4b5563", type: "burst", dmg: 18 }, { name: "PAUL", hex: "#ea580c", type: "dash", dmg: 20 },
-    { name: "LAW", hex: "#eab308", type: "burst", dmg: 14 }, { name: "KING", hex: "#d97706", type: "dash", dmg: 22 },
-    { name: "YOSHI", hex: "#16a34a", type: "proj", dmg: 10 }, { name: "NINA", hex: "#c026d3", type: "dash", dmg: 12 },
-    { name: "HWOARANG", hex: "#f97316", type: "burst", dmg: 14 }, { name: "XIAOYU", hex: "#f472b6", type: "dash", dmg: 10 },
-    { name: "BRYAN", hex: "#52525b", type: "burst", dmg: 16 }, { name: "STEVE", hex: "#2563eb", type: "dash", dmg: 13 },
-    { name: "ASUKA", hex: "#38bdf8", type: "burst", dmg: 15 }, { name: "LILI", hex: "#f8fafc", type: "dash", dmg: 12 },
-    { name: "DRAGUNOV", hex: "#3f3f46", type: "dash", dmg: 16 }, { name: "ALISA", hex: "#ec4899", type: "proj", dmg: 14 },
-    { name: "FENG", hex: "#b91c1c", type: "burst", dmg: 15 }, { name: "JACK-8", hex: "#10b981", type: "dash", dmg: 25 },
-    { name: "D.JIN", hex: "#171717", type: "laser", dmg: 15 }, { name: "AKUMA", hex: "#1e3a8a", type: "proj", dmg: 14 }
-  ];
+  const GROUND_Y = 550;
+  const GRAVITY = 1.2;
 
-  function initSelect() {
-    const grid = document.getElementById('char-select');
-    grid.innerHTML = '';
-    roster.forEach(c => {
-      let btn = document.createElement('button');
-      btn.className = 'char-btn'; btn.style.color = c.hex; btn.innerText = c.name;
-      btn.onclick = () => selectChar(c); grid.appendChild(btn);
-    });
+  const keys = {};
+  window.addEventListener('keydown', e => { keys[e.key.toLowerCase()] = true; });
+  window.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
+
+  // 화면 UI 업데이트 함수
+  function updateHealthUI() {
+    // P1
+    document.getElementById('p1-health').style.width = p1.hp + '%';
+    setTimeout(() => { document.getElementById('p1-health-delay').style.width = p1.hp + '%'; }, 300);
+    // P2
+    document.getElementById('p2-health').style.width = p2.hp + '%';
+    setTimeout(() => { document.getElementById('p2-health-delay').style.width = p2.hp + '%'; }, 300);
   }
 
-  function selectChar(char) {
-    if(selectStep === 0) p1Team.push(char); else if(selectStep === 1) p1Team.push(char);
-    else if(selectStep === 2) p2Team.push(char); else if(selectStep === 3) p2Team.push(char);
-    const msgs = ["PLAYER 1 - SELECT TAG PARTNER", "PLAYER 2 - SELECT POINT CHARACTER", "PLAYER 2 - SELECT TAG PARTNER", "GET READY FOR THE NEXT BATTLE!"];
-    document.getElementById('status-msg').innerText = msgs[selectStep]; selectStep++;
-    if(selectStep > 3) setTimeout(() => { document.getElementById('menu-layer').style.display = 'none'; document.getElementById('ui-layer').style.display = 'block'; startGame(); }, 500);
-  }
-
-  function returnToMenu() {
-    cancelAnimationFrame(reqId);
-    document.getElementById('game-over-layer').style.display = 'none'; document.getElementById('ui-layer').style.display = 'none'; document.getElementById('menu-layer').style.display = 'flex';
-    p1Team = []; p2Team = []; selectStep = 0; gameActive = false; document.getElementById('status-msg').innerText = "PLAYER 1 - SELECT POINT CHARACTER";
-  }
-
-  function applyCameraShake(mag, time) { camera.shakeMag = mag; camera.shakeTime = time; }
-  
-  // --- 잔상(Ghost) 렌더링 시스템 ---
-  class Player {
-    constructor(x, side, team) {
-      this.x = x; this.y = GROUND_Y; this.side = side; this.team = team; this.activeIdx = 0;
-      this.hp = [100, 100]; this.velX = 0; this.velY = 0; this.dir = side === 1 ? 1 : -1;
-      this.state = 'idle'; this.stateTimer = 0; this.hitbox = null; this.tagCooldown = 0;
-      this.combo = 0; this.comboTimer = 0;
-      this.inputBuffer = []; // 콤보용 입력 버퍼
-      this.ghosts = []; // 잔상 데이터
-    }
-    
-    get char() { return this.team[this.activeIdx]; }
-    get currentHp() { return this.hp[this.activeIdx]; }
-
-    recordGhost(color) {
-      if(this.ghosts.length > 5) this.ghosts.shift();
-      this.ghosts.push({ x: this.x, y: this.y, state: this.state, dir: this.dir, timer: this.stateTimer, alpha: 0.5, color: color });
-    }
-
-    drawHumanoid(gX, gY, gState, gDir, gTimer, alpha = 1.0, color = null) {
-      let t = Date.now() / 150;
-      let headY = gY - 140; let bodyTilt = 0;
-      let leftArm = { x: 0, y: 0 }, rightArm = { x: 0, y: 0 }, leftLeg = { x: 0, y: 0 }, rightLeg = { x: 0, y: 0 };
-
-      if(gState === 'idle') { headY += Math.sin(t)*3; leftArm = {x: -10*gDir, y: -50}; rightArm = {x: 20*gDir, y: -60}; leftLeg = {x: -15*gDir, y: 0}; rightLeg = {x: 25*gDir, y: 0}; } 
-      else if(gState === 'walk') { let c = Math.sin(t*2); headY += Math.abs(c)*5; leftArm = {x: -10*gDir+c*20, y: -50}; rightArm = {x: 20*gDir-c*20, y: -60}; leftLeg = {x: -5*gDir-c*30, y: c>0?-10:0}; rightLeg = {x: 15*gDir+c*30, y: c<0?-10:0}; }
-      else if(gState === 'jump' || gState === 'airHit') { headY += 20; bodyTilt = -10*gDir; leftArm = {x: -20*gDir, y: -100}; rightArm = {x: 20*gDir, y: -120}; leftLeg = {x: -10*gDir, y: -20}; rightLeg = {x: 10*gDir, y: -40}; }
-      else if(gState === 'guard') { headY += 5; bodyTilt = -5*gDir; leftArm = {x: 15*gDir, y: -100}; rightArm = {x: 25*gDir, y: -80}; leftLeg = {x: -20*gDir, y: 0}; rightLeg = {x: 15*gDir, y: 0}; }
-      // 콤보 액션들
-      else if(gState === 'punch1') { let ext = Math.sin(Math.PI*(gTimer/15))*40; headY+=5; bodyTilt=10*gDir; leftArm={x:-10*gDir,y:-50}; rightArm={x:(30+ext)*gDir,y:-80}; leftLeg={x:-20*gDir,y:0}; rightLeg={x:30*gDir,y:0}; }
-      else if(gState === 'punch2') { let ext = Math.sin(Math.PI*(gTimer/15))*40; headY+=5; bodyTilt=15*gDir; rightArm={x:-10*gDir,y:-50}; leftArm={x:(30+ext)*gDir,y:-70}; leftLeg={x:20*gDir,y:0}; rightLeg={x:-10*gDir,y:0}; }
-      else if(gState === 'comboKick' || gState === 'kick') { let ext = Math.sin(Math.PI*(gTimer/20))*50; headY+=15; bodyTilt=-15*gDir; leftArm={x:-20*gDir,y:-50}; rightArm={x:10*gDir,y:-40}; leftLeg={x:-10*gDir,y:0}; rightLeg={x:(30+ext)*gDir,y:-40-ext*0.5}; }
-      else if(gState === 'uppercut') { let ext = Math.sin(Math.PI*(gTimer/25))*80; headY-=10; bodyTilt=-10*gDir; leftArm={x:-20*gDir,y:-50}; rightArm={x:20*gDir,y:-80-ext}; leftLeg={x:-20*gDir,y:0}; rightLeg={x:10*gDir,y:0}; }
-      else if(gState === 'dashPunch') { bodyTilt = 30*gDir; headY+=10; leftArm={x:-30*gDir,y:-60}; rightArm={x:60*gDir,y:-70}; leftLeg={x:-40*gDir,y:0}; rightLeg={x:30*gDir,y:0}; }
-      else if(gState === 'spinKick') { bodyTilt = -20*gDir; headY+=10; leftArm={x:-20*gDir,y:-50}; rightArm={x:-30*gDir,y:-60}; leftLeg={x:0,y:0}; rightLeg={x:-80*gDir,y:-60}; }
-      else if(gState === 'skill') { headY-=10; bodyTilt=20*gDir; leftArm={x:30*gDir,y:-120}; rightArm={x:40*gDir,y:-100}; leftLeg={x:-30*gDir,y:0}; rightLeg={x:40*gDir,y:0}; }
-      else if(gState === 'hit') { headY+=10; bodyTilt=-30*gDir; leftArm={x:-30*gDir,y:-80}; rightArm={x:-40*gDir,y:-60}; leftLeg={x:-10*gDir,y:0}; rightLeg={x:20*gDir,y:0}; }
-
-      ctx.save(); ctx.translate(gX, gY); ctx.globalAlpha = alpha;
-      if(alpha === 1.0) { ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.beginPath(); ctx.ellipse(0, 0, 40, 10, 0, 0, Math.PI*2); ctx.fill(); }
-
-      let mainColor = color || this.char.hex;
-      ctx.strokeStyle = mainColor; ctx.lineWidth = 18; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-
-      ctx.beginPath(); ctx.moveTo(0, -60); ctx.lineTo(leftLeg.x, leftLeg.y); ctx.stroke();
-      ctx.lineWidth = 15; ctx.strokeStyle = alpha===1.0 ? '#666' : mainColor; ctx.beginPath(); ctx.moveTo(0, -110); ctx.lineTo(leftArm.x, leftArm.y); ctx.stroke();
-      ctx.lineWidth = 25; ctx.strokeStyle = mainColor; ctx.beginPath(); ctx.moveTo(0, -60); ctx.lineTo(bodyTilt, -120); ctx.stroke();
+  // 플레이어 클래스
+  class Fighter {
+    constructor(x, side, color) {
+      this.x = x;
+      this.y = GROUND_Y;
+      this.width = 70;
+      this.height = 160;
+      this.side = side;
+      this.dir = side === 1 ? 1 : -1;
+      this.color = color;
       
-      ctx.fillStyle = alpha===1.0 ? '#fff' : mainColor; ctx.beginPath(); ctx.arc(bodyTilt, headY, 18, 0, Math.PI*2); ctx.fill();
-      ctx.fillStyle = mainColor; ctx.beginPath(); ctx.arc(bodyTilt, headY, 18, Math.PI, Math.PI*2); ctx.fill(); 
-      if(alpha===1.0) { ctx.fillStyle = '#0ff'; ctx.shadowBlur = 10; ctx.shadowColor = '#0ff'; ctx.fillRect(bodyTilt + (gDir*8), headY - 4, 6, 4); ctx.shadowBlur = 0; }
-
-      ctx.lineWidth = 20; ctx.strokeStyle = alpha===1.0 ? '#eee' : mainColor; ctx.beginPath(); ctx.moveTo(0, -60); ctx.lineTo(rightLeg.x, rightLeg.y); ctx.stroke();
-      ctx.lineWidth = 18; ctx.strokeStyle = gState==='guard' ? '#0ff' : mainColor; ctx.beginPath(); ctx.moveTo(bodyTilt, -110); ctx.lineTo(rightArm.x, rightArm.y); ctx.stroke();
-      ctx.restore();
+      this.hp = 100;
+      this.velX = 0;
+      this.velY = 0;
+      
+      this.state = 'idle'; // idle, walk, jump, guard, attack, hit
+      this.frame = 0; // 애니메이션/판정용 프레임 타이머
+      
+      this.hitbox = null; // 공격 판정 박스
     }
-    
-    draw() {
-      // 잔상 그리기
-      for(let i=0; i<this.ghosts.length; i++) {
-        let g = this.ghosts[i];
-        this.drawHumanoid(g.x, g.y, g.state, g.dir, g.timer, g.alpha, g.color);
-        g.alpha -= 0.1;
+
+    update(enemy) {
+      // 방향 전환 (공격 중이 아닐 때만 적을 바라봄)
+      if(this.state === 'idle' || this.state === 'walk') {
+        this.dir = enemy.x > this.x ? 1 : -1;
       }
-      this.ghosts = this.ghosts.filter(g => g.alpha > 0);
-      
-      // 본체
-      this.drawHumanoid(this.x, this.y, this.state, this.dir, this.stateTimer);
-      
-      // 힛박스 (테스트/비주얼용)
-      if(this.hitbox && this.stateTimer > 0 && this.stateTimer % 4 < 2) {
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.6)'; ctx.fillRect(this.hitbox.x, this.hitbox.y, this.hitbox.w, this.hitbox.h);
-      }
-    }
-    
-    update() {
-      let enemy = this.side === 1 ? p2 : p1;
-      if(this.state === 'idle' || this.state === 'walk') this.dir = enemy.x > this.x ? 1 : -1;
 
-      // 공중 판정 (저글링)
+      // 물리 엔진 (점프 및 중력)
       if(this.y < GROUND_Y) {
-        this.velY += 1.2; this.y += this.velY;
-        if(this.state !== 'hit' && this.state !== 'airHit' && this.stateTimer === 0) this.state = 'jump';
+        this.velY += GRAVITY;
+        this.y += this.velY;
       } else {
-        this.y = GROUND_Y; this.velY = 0;
-        if(this.state === 'jump' || this.state === 'airHit') this.state = 'idle';
+        this.y = GROUND_Y;
+        this.velY = 0;
+        if(this.state === 'jump') this.state = 'idle';
       }
-      
-      this.x += this.velX; this.x = Math.max(30, Math.min(canvas.width - 30, this.x));
-      if(['idle', 'guard', 'punch1', 'punch2', 'uppercut'].includes(this.state)) this.velX *= 0.7;
 
-      if(this.stateTimer > 0) {
-        this.stateTimer--;
-        if(['dashPunch', 'spinKick', 'uppercut', 'skill', 'comboKick'].includes(this.state) && this.stateTimer % 3 === 0) this.recordGhost(this.char.hex);
-        if(this.stateTimer === 0 && !['idle', 'walk', 'jump', 'guard', 'airHit'].includes(this.state)) { this.state = 'idle'; this.hitbox = null; }
+      this.x += this.velX;
+      // 화면 밖 이탈 방지
+      this.x = Math.max(0, Math.min(canvas.width - this.width, this.x));
+
+      // 마찰력 감속 (땅에 있을 때)
+      if(this.y === GROUND_Y && this.state !== 'walk' && this.state !== 'hit') {
+        this.velX *= 0.8;
       }
-      
-      if(this.tagCooldown > 0) this.tagCooldown--;
-      if(this.comboTimer > 0) { this.comboTimer--; if(this.comboTimer === 0) this.combo = 0; }
-      
-      let comboUI = document.getElementById(`p${this.side === 1 ? 2 : 1}-combo`);
-      if(this.combo > 1) {
-        comboUI.innerText = `${this.combo} HITS!`; comboUI.style.opacity = 1;
-        comboUI.style.transform = `scale(${1 + (this.comboTimer%10)/50})`;
-      } else comboUI.style.opacity = 0;
-    }
 
-    // 커맨드 공격 시스템
-    executeAttack(cmd) {
-      if(this.stateTimer > 0 && !['punch1', 'punch2'].includes(this.state)) return;
-      if(this.state === 'guard') return;
-      
-      // 스트링 콤보 연계
-      if(this.state === 'punch1' && cmd === 'punch' && this.stateTimer < 10) cmd = 'punch2';
-      else if(this.state === 'punch2' && cmd === 'kick' && this.stateTimer < 10) cmd = 'comboKick';
-      else if(this.stateTimer > 0) return; // 콤보 타이밍 아니면 무시
-
-      this.state = cmd;
-      
-      switch(cmd) {
-        case 'punch1':
-          this.stateTimer = 15; this.hitbox = { x: this.x + (this.dir===1?20:-80), y: this.y - 110, w: 60, h: 40, dmg: 4, hitStop: 4, shake: 2 }; break;
-        case 'punch2':
-          this.stateTimer = 18; this.hitbox = { x: this.x + (this.dir===1?20:-90), y: this.y - 110, w: 70, h: 40, dmg: 5, hitStop: 5, shake: 3 }; break;
-        case 'comboKick':
-          this.stateTimer = 25; this.velX = this.dir * 10; this.hitbox = { x: this.x + (this.dir===1?20:-100), y: this.y - 80, w: 80, h: 50, dmg: 10, hitStop: 8, shake: 6 }; break;
-        case 'kick':
-          this.stateTimer = 22; this.hitbox = { x: this.x + (this.dir===1?20:-90), y: this.y - 70, w: 70, h: 40, dmg: 7, hitStop: 6, shake: 4 }; break;
-        case 'uppercut': // 런처 (적 띄움)
-          this.stateTimer = 25; this.hitbox = { x: this.x + (this.dir===1?20:-80), y: this.y - 150, w: 60, h: 100, dmg: 8, hitStop: 8, shake: 8, launch: true }; break;
-        case 'dashPunch':
-          this.stateTimer = 20; this.velX = this.dir * 20; this.hitbox = { x: this.x + (this.dir===1?0:-100), y: this.y - 100, w: 100, h: 50, dmg: 12, hitStop: 10, shake: 8 }; break;
-        case 'spinKick':
-          this.stateTimer = 25; this.velX = this.dir * 15; this.hitbox = { x: this.x + (this.dir===1?-20:-100), y: this.y - 80, w: 120, h: 40, dmg: 15, hitStop: 12, shake: 10 }; break;
-        case 'skill':
-          this.stateTimer = 35; let s = this.char;
-          if(s.type === 'proj' || s.type === 'laser') projectiles.push({ x: this.x + (this.dir===1?40:-40), y: this.y - 100, vx: this.dir*(s.type==='laser'?30:12), w: (s.type==='laser'?100:40), h: 40, color: s.hex, owner: this.side, dmg: s.dmg });
-          else if(s.type === 'burst') { this.hitbox = { x: this.x + (this.dir===1?30:-110), y: this.y - 130, w: 80, h: 130, dmg: s.dmg, hitStop: 10, shake: 12 }; spawnParticles(this.hitbox.x+40, this.hitbox.y+60, s.hex, 40, 15); }
-          else if(s.type === 'dash') { this.velX = this.dir * 30; this.hitbox = { x: this.x - 30, y: this.y - 110, w: 120, h: 100, dmg: s.dmg, hitStop: 12, shake: 15 }; spawnParticles(this.x, this.y-50, s.hex, 20, 8); }
-          break;
-      }
-    }
-    
-    takeDamage(dmg, dir, hitStopFrames, shakeMag, attacker, launch) {
-      if(this.state === 'guard' && this.y === GROUND_Y && !launch) { // 띄우기는 가드 불가 비스무리하게
-        this.hp[this.activeIdx] = Math.max(0, this.hp[this.activeIdx] - dmg * 0.1); this.velX = dir * 3;
-        spawnParticles(this.x, this.y - 80, '#0ff', 10, 5); hitStop = 3;
-      } else {
-        this.hp[this.activeIdx] = Math.max(0, this.hp[this.activeIdx] - dmg);
-        
-        // 저글링 (공중 히트)
-        if(launch || this.y < GROUND_Y) {
-          this.state = 'airHit'; this.velY = -20; this.velX = dir * 5; this.stateTimer = 30;
-          spawnParticles(this.x, this.y - 100, '#ff0', 30, 15); // 에어 히트 이펙트
+      // 상태별 프레임 관리
+      if(this.state === 'attack') {
+        this.frame++;
+        // 프레임 5~10 구간에만 공격 판정(Hitbox) 생성
+        if(this.frame > 5 && this.frame < 12) {
+          this.hitbox = {
+            x: this.x + (this.dir === 1 ? this.width : -60),
+            y: this.y - 120,
+            w: 60, h: 40, dmg: 10
+          };
         } else {
-          this.state = 'hit'; this.stateTimer = hitStopFrames + 12; this.velX = dir * 8; this.velY = -3;
-          spawnParticles(this.x, this.y - 80, '#f00', 20, 10);
+          this.hitbox = null; // 판정 종료
         }
-        
-        hitStop = hitStopFrames; applyCameraShake(shakeMag, hitStopFrames + 5);
-        attacker.combo++; attacker.comboTimer = 150;
+        // 공격 모션 종료
+        if(this.frame > 25) this.state = 'idle';
+      } 
+      else if(this.state === 'hit') {
+        this.frame++;
+        if(this.frame > 20) this.state = 'idle'; // 경직 끝
       }
-      document.getElementById(`p${this.side}-hp-fill`).style.width = this.currentHp + '%';
+      else {
+        this.frame = 0;
+        this.hitbox = null;
+      }
     }
-  }
 
-  function spawnParticles(x, y, color, count, speed) {
-    for(let i=0; i<count; i++) particles.push({ x: x, y: y, vx: (Math.random()-0.5)*speed, vy: (Math.random()-0.5)*speed-2, life: 1.0, color: color, size: Math.random()*8+4 });
-  }
-
-  function renderParticles() {
-    for(let i=particles.length-1; i>=0; i--) {
-      let p = particles[i]; p.x += p.vx; p.y += p.vy; p.vy += 0.2; p.life -= 0.03;
-      if(p.life <= 0) { particles.splice(i, 1); continue; }
-      ctx.globalAlpha = p.life; ctx.fillStyle = p.color; ctx.fillRect(p.x, p.y, p.size, p.size);
+    attack() {
+      if(this.state === 'idle' || this.state === 'walk') {
+        this.state = 'attack';
+        this.frame = 0;
+        this.velX = 0; // 공격 시 멈춤
+      }
     }
-    ctx.globalAlpha = 1.0;
-    
-    for(let i=projectiles.length-1; i>=0; i--) {
-      let prj = projectiles[i]; prj.x += prj.vx;
-      ctx.shadowBlur=15; ctx.shadowColor=prj.color; ctx.fillStyle=prj.color; ctx.fillRect(prj.x, prj.y, prj.w, prj.h); ctx.shadowBlur=0;
-      spawnParticles(prj.x + prj.w/2, prj.y + prj.h/2, prj.color, 2, 2);
+
+    takeDamage(dmg, knockbackDir) {
+      if(this.state === 'guard') {
+        // 가드 데미지(칩 데미지)
+        this.hp -= dmg * 0.2;
+        this.velX = knockbackDir * 3;
+      } else {
+        this.hp -= dmg;
+        this.state = 'hit';
+        this.frame = 0;
+        this.velX = knockbackDir * 12; // 넉백
+        this.velY = -5; // 살짝 뜸
+      }
+      this.hp = Math.max(0, this.hp);
+      updateHealthUI();
+    }
+
+    draw() {
+      ctx.save();
+      ctx.translate(this.x, this.y);
+
+      // 그림자
+      ctx.fillStyle = 'rgba(0,0,0,0.5)';
+      ctx.beginPath();
+      ctx.ellipse(this.width/2, 0, 40, 10, 0, 0, Math.PI*2);
+      ctx.fill();
+
+      // 캐릭터 몸통 렌더링
+      ctx.fillStyle = this.state === 'hit' ? '#fff' : this.color;
       
-      let target = prj.owner === 1 ? p2 : p1;
-      if(prj.x < target.x + 40 && prj.x + prj.w > target.x - 40 && prj.y < target.y && prj.y + prj.h > target.y - 140) {
-        target.takeDamage(prj.dmg, prj.vx > 0 ? 1 : -1, 8, 10, prj.owner === 1 ? p1 : p2, false);
-        spawnParticles(prj.x, prj.y, prj.color, 30, 10); projectiles.splice(i, 1); continue;
+      // 상태에 따른 외형 변화 (아주 단순화된 애니메이션)
+      let tilt = 0;
+      if(this.state === 'walk') tilt = 10 * this.dir;
+      if(this.state === 'attack') tilt = 20 * this.dir;
+      if(this.state === 'guard') tilt = -10 * this.dir;
+      if(this.state === 'hit') tilt = -30 * this.dir;
+
+      // 몸통
+      ctx.fillRect(tilt, -this.height, this.width, this.height);
+      
+      // 가드 이펙트
+      if(this.state === 'guard') {
+        ctx.strokeStyle = '#0ff';
+        ctx.lineWidth = 5;
+        ctx.strokeRect(tilt - 10, -this.height - 10, this.width + 20, this.height + 20);
       }
-      if(prj.x < -200 || prj.x > canvas.width + 200) projectiles.splice(i, 1);
+
+      // 눈(방향 표시)
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(tilt + (this.dir === 1 ? this.width - 20 : 5), -this.height + 20, 15, 15);
+
+      ctx.restore();
+
+      // 디버그용 힛박스 (타격감을 위해 번쩍이는 효과로 재활용)
+      if(this.hitbox) {
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+        ctx.fillRect(this.hitbox.x, this.hitbox.y, this.hitbox.w, this.hitbox.h);
+      }
     }
   }
+
+  let p1, p2;
+  let particles = [];
 
   function startGame() {
-    p1 = new Player(200, 1, p1Team); p2 = new Player(1080, 2, p2Team); p2.dir = -1;
-    timeLeft = 99; hitStop = 0; camera = { x: 0, y: 0, shakeTime: 0, shakeMag: 0 };
-    particles = []; projectiles = []; keys = {}; gameActive = true;
+    document.getElementById('menu-layer').style.display = 'none';
+    document.getElementById('ui-layer').style.display = 'block';
+    document.getElementById('ko-text').style.display = 'none';
     
-    document.getElementById('p1-hp-fill').style.width = '100%'; document.getElementById('p2-hp-fill').style.width = '100%';
-    document.getElementById('p1-name').innerText = `${p1.char.name} (T:${p1.team[1].name})`;
-    document.getElementById('p2-name').innerText = `${p2.char.name} (T:${p2.team[1].name})`;
+    // 캐릭터 생성 (빨강 vs 파랑)
+    p1 = new Fighter(200, 1, '#ff3333');
+    p2 = new Fighter(900, 2, '#3333ff');
     
-    const timerInt = setInterval(() => {
-      if(!gameActive) clearInterval(timerInt);
-      else if(timeLeft > 0 && p1.currentHp > 0 && p2.currentHp > 0) { timeLeft--; document.getElementById('timer').innerText = timeLeft; }
+    timer = 99;
+    gameActive = true;
+    updateHealthUI();
+    
+    // 1초마다 타이머 감소
+    const timerInterval = setInterval(() => {
+      if(!gameActive) clearInterval(timerInterval);
+      else if(timer > 0) {
+        timer--;
+        document.getElementById('timer').innerText = timer;
+      }
     }, 1000);
-    reqId = requestAnimationFrame(loop);
+
+    requestID = requestAnimationFrame(gameLoop);
   }
 
-  function checkHit(attacker, defender) {
-    if(!attacker.hitbox) return;
-    let h = attacker.hitbox;
-    if(h.x < defender.x + 40 && h.x + h.w > defender.x - 40 && h.y < defender.y && h.y + h.h > defender.y - 140) {
-       defender.takeDamage(h.dmg, attacker.dir, h.hitStop, h.shake, attacker, h.launch);
-       attacker.hitbox = null; 
-    }
-  }
-
-  function drawBackground() {
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)'; ctx.lineWidth = 2;
-    for(let i=0; i<30; i++) { ctx.beginPath(); ctx.moveTo(canvas.width/2, GROUND_Y - 50); ctx.lineTo(i * 100 - 800, canvas.height); ctx.stroke(); }
-    ctx.strokeStyle = '#444'; ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(0, GROUND_Y); ctx.lineTo(canvas.width, GROUND_Y); ctx.stroke();
-  }
-
-  function loop() {
-    if(!gameActive) return;
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    
-    ctx.save();
-    if(camera.shakeTime > 0) { camera.shakeTime--; ctx.translate((Math.random()-0.5)*camera.shakeMag, (Math.random()-0.5)*camera.shakeMag); }
-    drawBackground();
-
-    if(hitStop > 0) hitStop--;
-    else if(p1.currentHp > 0 && p2.currentHp > 0 && timeLeft > 0) {
-      handleInput(); p1.update(); p2.update(); checkHit(p1, p2); checkHit(p2, p1);
-    }
-    
-    renderParticles(); p1.draw(); p2.draw(); ctx.restore(); 
-
-    if(p1.currentHp <= 0 || p2.currentHp <= 0 || timeLeft <= 0) {
-      document.getElementById('result-msg').innerText = timeLeft <= 0 ? "TIME UP!" : (p1.currentHp <= 0 ? "PLAYER 2 WINS!" : "PLAYER 1 WINS!");
-      document.getElementById('game-over-layer').style.display = 'flex';
-    } else reqId = requestAnimationFrame(loop);
-  }
-
-  // --- 커맨드 입력 로직 ---
-  window.addEventListener('keydown', e => { keys[e.key.toLowerCase()] = true; });
-  window.addEventListener('keyup', e => { 
-    let k = e.key.toLowerCase(); keys[k] = false; 
-    // 키 뗐을 때 공격 판정 (단타 입력 느낌)
-    if(p1.currentHp > 0 && p2.currentHp > 0 && hitStop === 0) {
-      if(k === 'z') { if(keys['s']) p1.executeAttack('uppercut'); else if(keys['d'] && p1.dir===1 || keys['a'] && p1.dir===-1) p1.executeAttack('dashPunch'); else p1.executeAttack('punch1'); }
-      if(k === 'x') { if(keys['d'] && p1.dir===1 || keys['a'] && p1.dir===-1) p1.executeAttack('spinKick'); else p1.executeAttack('kick'); }
-      if(k === 'c') p1.executeAttack('skill');
-
-      if(k === 'i') { if(keys['arrowdown']) p2.executeAttack('uppercut'); else if(keys['arrowright'] && p2.dir===1 || keys['arrowleft'] && p2.dir===-1) p2.executeAttack('dashPunch'); else p2.executeAttack('punch1'); }
-      if(k === 'o') { if(keys['arrowright'] && p2.dir===1 || keys['arrowleft'] && p2.dir===-1) p2.executeAttack('spinKick'); else p2.executeAttack('kick'); }
-      if(k === 'p') p2.executeAttack('skill');
-    }
-  });
-
+  // 조작 처리
   function handleInput() {
     const SPEED = 8;
-    // P1
-    if(keys['s']) p1.state = 'guard';
-    else if(p1.stateTimer === 0 && p1.y === GROUND_Y) {
-      p1.state = 'idle';
-      if(keys['a']) { p1.velX = -SPEED; p1.state = 'walk'; }
-      if(keys['d']) { p1.velX = SPEED; p1.state = 'walk'; }
-      if(keys['w']) { p1.velY = -22; p1.state = 'jump'; }
-    }
-    if(keys['t'] && p1.tagCooldown === 0 && p1.hp[1-p1.activeIdx] > 0 && p1.y === GROUND_Y && p1.stateTimer === 0) {
-      p1.activeIdx = 1 - p1.activeIdx; p1.tagCooldown = 150; p1.combo = 0; spawnParticles(p1.x, p1.y - 70, '#fff', 40, 15);
-      document.getElementById('p1-name').innerText = `${p1.char.name} (T:${p1.team[1-p1.activeIdx].name})`; document.getElementById('p1-hp-fill').style.width = p1.currentHp + '%';
+    
+    // P1 (WASD, Z, X)
+    p1.state = (p1.state === 'idle' || p1.state === 'walk' || p1.state === 'guard') ? 'idle' : p1.state;
+    if(p1.state === 'idle') {
+      if(keys['s']) p1.state = 'guard';
+      else {
+        if(keys['a']) { p1.velX = -SPEED; p1.state = 'walk'; }
+        if(keys['d']) { p1.velX = SPEED; p1.state = 'walk'; }
+        if(keys['w'] && p1.y === GROUND_Y) { p1.velY = -22; p1.state = 'jump'; }
+        if(keys['z'] || keys['x']) p1.attack();
+      }
     }
 
-    // P2
-    if(keys['arrowdown']) p2.state = 'guard';
-    else if(p2.stateTimer === 0 && p2.y === GROUND_Y) {
-      p2.state = 'idle';
-      if(keys['arrowleft']) { p2.velX = -SPEED; p2.state = 'walk'; }
-      if(keys['arrowright']) { p2.velX = SPEED; p2.state = 'walk'; }
-      if(keys['arrowup']) { p2.velY = -22; p2.state = 'jump'; }
-    }
-    if(keys['l'] && p2.tagCooldown === 0 && p2.hp[1-p2.activeIdx] > 0 && p2.y === GROUND_Y && p2.stateTimer === 0) {
-      p2.activeIdx = 1 - p2.activeIdx; p2.tagCooldown = 150; p2.combo = 0; spawnParticles(p2.x, p2.y - 70, '#fff', 40, 15);
-      document.getElementById('p2-name').innerText = `${p2.char.name} (T:${p2.team[1-p2.activeIdx].name})`; document.getElementById('p2-hp-fill').style.width = p2.currentHp + '%';
+    // P2 (방향키, I, O)
+    p2.state = (p2.state === 'idle' || p2.state === 'walk' || p2.state === 'guard') ? 'idle' : p2.state;
+    if(p2.state === 'idle') {
+      if(keys['arrowdown']) p2.state = 'guard';
+      else {
+        if(keys['arrowleft']) { p2.velX = -SPEED; p2.state = 'walk'; }
+        if(keys['arrowright']) { p2.velX = SPEED; p2.state = 'walk'; }
+        if(keys['arrowup'] && p2.y === GROUND_Y) { p2.velY = -22; p2.state = 'jump'; }
+        if(keys['i'] || keys['o']) p2.attack();
+      }
     }
   }
 
-  initSelect();
+  // 충돌 판정 (Hitbox vs Hurtbox)
+  function checkHit(attacker, defender) {
+    if(!attacker.hitbox) return;
+    
+    let box = attacker.hitbox;
+    // 방어자의 영역(Hurtbox)은 현재 x, y를 기준으로 계산
+    if(box.x < defender.x + defender.width &&
+       box.x + box.w > defender.x &&
+       box.y < defender.y &&
+       box.y + box.h > defender.y - defender.height) 
+    {
+       defender.takeDamage(box.dmg, attacker.dir);
+       attacker.hitbox = null; // 다단히트 방지
+       
+       // 타격감 연출 (역경직과 카메라 흔들림)
+       hitStopFrames = 5;
+       cameraShake = 10;
+       createParticles(box.x + box.w/2, box.y + box.h/2);
+    }
+  }
+
+  // 타격 이펙트(파티클) 생성
+  function createParticles(x, y) {
+    for(let i=0; i<15; i++) {
+      particles.push({
+        x: x, y: y,
+        vx: (Math.random() - 0.5) * 15,
+        vy: (Math.random() - 0.5) * 15,
+        life: 1.0
+      });
+    }
+  }
+
+  function drawParticles() {
+    for(let i=particles.length-1; i>=0; i--) {
+      let p = particles[i];
+      p.x += p.vx;
+      p.y += p.vy;
+      p.life -= 0.05;
+      if(p.life <= 0) {
+        particles.splice(i, 1);
+        continue;
+      }
+      ctx.globalAlpha = p.life;
+      ctx.fillStyle = '#ffaa00';
+      ctx.fillRect(p.x, p.y, 8, 8);
+    }
+    ctx.globalAlpha = 1.0;
+  }
+
+  // 메인 게임 루프
+  function gameLoop() {
+    if(!gameActive) return;
+
+    // 화면 지우기 (배경 그리기)
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // 바닥 선 그리기
+    ctx.strokeStyle = '#444';
+    ctx.lineWidth = 10;
+    ctx.beginPath();
+    ctx.moveTo(0, GROUND_Y);
+    ctx.lineTo(canvas.width, GROUND_Y);
+    ctx.stroke();
+
+    ctx.save();
+    
+    // 1. 역경직 (Hit Stop) 처리
+    if(hitStopFrames > 0) {
+      hitStopFrames--;
+    } else {
+      // 역경직이 아닐 때만 로직 업데이트
+      handleInput();
+      p1.update(p2);
+      p2.update(p1);
+      
+      checkHit(p1, p2);
+      checkHit(p2, p1);
+    }
+
+    // 2. 카메라 흔들림 (Screen Shake)
+    if(cameraShake > 0) {
+      ctx.translate((Math.random()-0.5)*cameraShake, (Math.random()-0.5)*cameraShake);
+      cameraShake--;
+    }
+
+    // 3. 렌더링
+    p1.draw();
+    p2.draw();
+    drawParticles();
+    
+    ctx.restore();
+
+    // 4. 게임 오버 판정
+    if(p1.hp <= 0 || p2.hp <= 0 || timer <= 0) {
+      document.getElementById('ko-text').style.display = 'block';
+      gameActive = false;
+      
+      // 3초 후 메뉴로 복귀
+      setTimeout(() => {
+        document.getElementById('menu-layer').style.display = 'flex';
+        document.getElementById('ui-layer').style.display = 'none';
+      }, 3000);
+    } else {
+      requestID = requestAnimationFrame(gameLoop);
+    }
+  }
 </script>
 </body>
 </html>
