@@ -2,340 +2,482 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<title>ASCII TEKKEN</title>
+<title>2D Canvas Tekken</title>
 <style>
   body { 
-    background-color: #000; 
-    color: #3f3; 
-    font-family: 'Courier New', Courier, monospace; 
-    text-align: center; 
+    background-color: #111; 
+    color: #fff; 
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
     margin: 0; 
-    padding: 20px;
+    display: flex; 
+    flex-direction: column; 
+    align-items: center; 
     user-select: none;
   }
-  .screen { display: none; margin: 0 auto; width: 800px; padding: 20px; border: 1px solid #3f3; }
-  .active { display: block; }
-  h1 { text-shadow: 0 0 10px #3f3; font-size: 40px; margin-bottom: 50px; }
-  button { 
-    background: #000; color: #3f3; border: 1px solid #3f3; 
-    padding: 10px 20px; margin: 10px; font-family: inherit; font-size: 20px; cursor: pointer;
-  }
-  button:hover { background: #3f3; color: #000; }
   
-  /* 설정 화면 */
-  .setting-item { font-size: 24px; margin: 20px; }
-
-  /* 캐릭터 선택 화면 */
-  #char-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin: 20px 0; }
-  .char-btn { font-size: 16px; padding: 15px 5px; }
-  #select-status { font-size: 24px; color: #ff0; margin-bottom: 20px; }
-  .team-display { display: flex; justify-content: space-between; margin-top: 20px; font-size: 18px; color: #fff;}
-
-  /* 게임 화면 */
-  #game-board { 
-    text-align: left; 
-    font-size: 18px; 
-    line-height: 1.2; 
-    white-space: pre; 
-    background-color: #111;
-    padding: 20px;
-    margin-bottom: 10px;
-    min-height: 250px;
+  /* 16:9 화면 비율 컨테이너 */
+  #game-container {
+    width: 100%;
+    max-width: 960px; /* 최대 너비 제한 */
+    aspect-ratio: 16 / 9;
+    background: #222;
+    position: relative;
+    box-shadow: 0 0 20px rgba(0,0,0,0.8);
+    margin-top: 20px;
+    overflow: hidden;
   }
-  .ui-bar { display: flex; justify-content: space-between; margin-bottom: 10px; font-weight: bold; }
-  .hp-bar { color: #f33; }
-  .log { font-size: 16px; color: #aaa; height: 40px; }
+
+  /* 캔버스는 컨테이너에 꽉 차게 */
+  canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+
+  /* UI 오버레이 */
+  #ui-layer {
+    position: absolute;
+    top: 0; left: 0; width: 100%; height: 100%;
+    pointer-events: none;
+    display: none;
+    padding: 20px;
+    box-sizing: border-box;
+  }
+
+  .hp-bar-bg { width: 40%; height: 20px; background: #444; border: 2px solid #fff; position: absolute; top: 20px; }
+  .hp-bar-fill { height: 100%; background: #f33; transition: width 0.1s; }
+  #p1-hp-bg { left: 20px; }
+  #p2-hp-bg { right: 20px; transform: scaleX(-1); } /* P2 체력바는 반대 방향으로 줄어들게 */
+  
+  #timer {
+    position: absolute; top: 15px; left: 50%; transform: translateX(-50%);
+    font-size: 30px; font-weight: bold; color: #ff0; text-shadow: 2px 2px 0 #000;
+  }
+
+  .names {
+    position: absolute; top: 45px; font-size: 18px; font-weight: bold; text-shadow: 1px 1px 0 #000;
+  }
+  #p1-name { left: 20px; color: #0df; }
+  #p2-name { right: 20px; color: #f0d; }
+
+  /* 메뉴 화면 */
+  #menu-layer {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.8); display: flex; flex-direction: column; 
+    align-items: center; justify-content: center; z-index: 10;
+  }
+  
+  h1 { font-size: 4vw; color: #f90; margin-bottom: 20px; text-shadow: 0 0 10px #f90; }
+  
+  #char-select {
+    display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px;
+    width: 80%; max-height: 50%; overflow-y: auto; padding: 10px;
+  }
+  
+  .char-btn {
+    background: #333; color: #fff; border: 2px solid #555; padding: 10px;
+    cursor: pointer; font-weight: bold; transition: 0.2s;
+  }
+  .char-btn:hover { background: #f90; color: #000; border-color: #fff; }
+  
+  #status-msg { font-size: 24px; margin-bottom: 20px; color: #0fd; }
+  
+  .controls-info { margin-top: 10px; color: #aaa; font-size: 14px; text-align: center; }
 </style>
 </head>
 <body>
 
-  <!-- 1. 메인 메뉴 -->
-  <div id="screen-main" class="screen active">
-    <h1>=== ASCII TEKKEN ===</h1>
-    <button onclick="nav('screen-select')">GAME START</button><br>
-    <button onclick="nav('screen-settings')">SETTINGS</button><br>
-    <button onclick="alert('브라우저 탭을 닫아 종료해주세요.')">EXIT</button>
+<div id="game-container">
+  <canvas id="gameCanvas" width="960" height="540"></canvas>
+  
+  <div id="ui-layer">
+    <div id="p1-hp-bg" class="hp-bar-bg"><div id="p1-hp-fill" class="hp-bar-fill" style="width:100%"></div></div>
+    <div id="p2-hp-bg" class="hp-bar-bg"><div id="p2-hp-fill" class="hp-bar-fill" style="width:100%"></div></div>
+    <div id="timer">99</div>
+    <div id="p1-name" class="names">P1</div>
+    <div id="p2-name" class="names">P2</div>
   </div>
 
-  <!-- 2. 설정 화면 -->
-  <div id="screen-settings" class="screen">
-    <h1>SETTINGS</h1>
-    <div class="setting-item">
-      음량: <button onclick="toggleSet('vol')"><span id="vol-txt">100%</span></button>
-    </div>
-    <div class="setting-item">
-      효과음 (SFX): <button onclick="toggleSet('sfx')"><span id="sfx-txt">ON</span></button>
-    </div>
-    <br><br>
-    <button onclick="nav('screen-main')">BACK TO MENU</button>
+  <div id="menu-layer">
+    <h1>2D CANVAS TEKKEN</h1>
+    <div id="status-msg">Player 1 - Select Character (1/2)</div>
+    <div id="char-select"></div>
   </div>
+</div>
 
-  <!-- 3. 캐릭터 선택 화면 -->
-  <div id="screen-select" class="screen">
-    <h1>CHARACTER SELECT</h1>
-    <div id="select-status">Player 1 - 첫 번째 캐릭터를 선택하세요</div>
-    <div id="char-grid"></div>
-    <div class="team-display">
-      <div id="p1-team">P1 TEAM: [ 대기중 ]</div>
-      <div id="p2-team">P2 TEAM: [ 대기중 ]</div>
-    </div>
-  </div>
-
-  <!-- 4. 게임 화면 -->
-  <div id="screen-game" class="screen">
-    <div class="ui-bar">
-      <div id="p1-ui">P1 <span class="hp-bar" id="p1-hp"></span></div>
-      <div id="time">TIME: 99</div>
-      <div id="p2-ui"><span class="hp-bar" id="p2-hp"></span> P2</div>
-    </div>
-    <div id="game-board"></div>
-    <div class="log" id="battle-log">FIGHT!</div>
-    <div style="font-size: 14px; color:#666; margin-top:20px;">
-      P1: WASD(이동/방어), F(펀치), G(킥), H(스킬), T(태그) | P2: 화살표(이동/방어), I(펀치), O(킥), P(스킬), L(태그)
-    </div>
-  </div>
+<div class="controls-info">
+  [Player 1] 이동: WASD | 펀치: Z | 킥: X | 스킬: C | 태그: T <br>
+  [Player 2] 이동: 방향키 | 펀치: I | 킥: O | 스킬: P | 태그: L
+</div>
 
 <script>
-  // --- 데이터 및 상태 ---
-  const tekkenRoster = [
-    { id: 1, name: "Jin", skillName: "풍신권", dmg: 4, range: 4, effect: "⚡" },
-    { id: 2, name: "Kazuya", skillName: "나락쓸기", dmg: 3, range: 3, effect: "🌪️" },
-    { id: 3, name: "Heihachi", skillName: "뇌신권", dmg: 5, range: 4, effect: "🌩️" },
-    { id: 4, name: "Paul", skillName: "붕권", dmg: 7, range: 3, effect: "💥" },
-    { id: 5, name: "Law", skillName: "썸머솔트", dmg: 3, range: 4, effect: "🤸" },
-    { id: 6, name: "King", skillName: "자이언트스윙", dmg: 6, range: 2, effect: "🌀" },
-    { id: 7, name: "Yoshimitsu", skillName: "요시미츠블레이드", dmg: 4, range: 5, effect: "🗡️" },
-    { id: 8, name: "Nina", skillName: "아이보리커터", dmg: 3, range: 3, effect: "🔪" },
-    { id: 9, name: "Hwoarang", skillName: "초스카이", dmg: 4, range: 4, effect: "🦅" },
-    { id: 10, name: "Xiaoyu", skillName: "봉황자세(카운터)", dmg: 3, range: 3, effect: "🦚" }
+  const canvas = document.getElementById('gameCanvas');
+  const ctx = canvas.getContext('2d');
+  
+  // --- 20인 캐릭터 로스터 및 고유 스킬 설정 ---
+  // 이펙트 타입: 'projectile'(장풍), 'burst'(근접폭발), 'dash'(돌진기)
+  const roster = [
+    { name: "Jin", color: "#cc0000", skillType: "burst", skillColor: "#ff4444", effect: "풍신권" },
+    { name: "Kazuya", color: "#800080", skillType: "projectile", skillColor: "#ff00ff", effect: "나락/레이저" },
+    { name: "Heihachi", color: "#666666", skillType: "burst", skillColor: "#ffff00", effect: "뇌신권(전기)" },
+    { name: "Paul", color: "#ff3300", skillType: "dash", skillColor: "#ff9900", effect: "붕권" },
+    { name: "Law", color: "#ffff00", skillType: "burst", skillColor: "#ffffff", effect: "썸머솔트" },
+    { name: "King", color: "#ffcc66", skillType: "burst", skillColor: "#ffcc00", effect: "잡기(폭발)" },
+    { name: "Yoshimitsu", color: "#009933", skillType: "projectile", skillColor: "#00ffcc", effect: "검기" },
+    { name: "Nina", color: "#9933cc", skillType: "dash", skillColor: "#ff66cc", effect: "암살돌진" },
+    { name: "Hwoarang", color: "#ff6600", skillType: "burst", skillColor: "#ffaa00", effect: "초스카이" },
+    { name: "Xiaoyu", color: "#ff99cc", skillType: "dash", skillColor: "#ffcccc", effect: "봉황돌진" },
+    { name: "Bryan", color: "#333333", skillType: "burst", skillColor: "#cccccc", effect: "마하펀치" },
+    { name: "Steve", color: "#3366cc", skillType: "dash", skillColor: "#6699ff", effect: "더킹러쉬" },
+    { name: "Asuka", color: "#99ccff", skillType: "burst", skillColor: "#ccffff", effect: "반격기(파동)" },
+    { name: "Lili", color: "#ffffff", skillType: "dash", skillColor: "#ffcccc", effect: "우아한돌진" },
+    { name: "Dragunov", color: "#4d4d4d", skillType: "burst", skillColor: "#999999", effect: "블리자드러쉬" },
+    { name: "Alisa", color: "#ff3399", skillType: "projectile", skillColor: "#ff99cc", effect: "전기톱투척" },
+    { name: "Feng", color: "#cc3300", skillType: "burst", skillColor: "#ff6600", effect: "단전폭발" },
+    { name: "Jack-7", color: "#00cc66", skillType: "dash", skillColor: "#33ff99", effect: "메가톤대쉬" },
+    { name: "Devil Jin", color: "#1a1a1a", skillType: "projectile", skillColor: "#cc0000", effect: "지옥불" },
+    { name: "Akuma", color: "#000066", skillType: "projectile", skillColor: "#ff6600", effect: "파동권" }
   ];
 
-  let selectStep = 0; // 0: P1_1, 1: P2_1, 2: P1_2, 3: P2_2
-  let p1Team = [];
-  let p2Team = [];
-  let p1Active = 0, p2Active = 0;
+  let p1Team = [], p2Team = [];
+  let selectStep = 0;
   
-  // 인게임 상태
-  let p1 = { x: 5, hp: [40, 40], state: 'idle', timer: 0, guard: false };
-  let p2 = { x: 40, hp: [40, 40], state: 'idle', timer: 0, guard: false };
-  const boardWidth = 50;
-  let gameInterval, time = 99;
+  // --- 게임 엔진 상태 ---
+  let p1, p2;
+  let particles = [];
+  let projectiles = [];
+  let keys = {};
+  let gameLoopReq;
+  let timeLeft = 99;
+  let lastTime = 0;
+  
+  // --- 바닥(Ground) Y 좌표 ---
+  const GROUND_Y = 450;
 
-  // 스프라이트 
-  const spr = {
-    idle:  ["  o  ", " /|\\ ", " / \\ "],
-    punch: ["  o__", " /|  ", " / \\ "],
-    kick:  ["  o  ", " /|  ", " / \\_"],
-    skill: [" \\o/ ", " -|- ", " / \\ "],
-    guard: ["  o  ", " /|] ", " / \\ "],
-    hit:   ["  o  ", " <|\\ ", " / > "]
-  };
-  const spr2 = {
-    idle:  ["  o  ", " /|\\ ", " / \\ "],
-    punch: ["__o  ", "  |\\ ", " / \\ "],
-    kick:  ["  o  ", "  |\\ ", "_/ \\ "],
-    skill: [" \\o/ ", " -|- ", " / \\ "],
-    guard: ["  o  ", " [|\\ ", " / \\ "],
-    hit:   ["  o  ", " /|> ", " < \\ "]
-  };
-
-  // --- UI 네비게이션 ---
-  function nav(screenId) {
-    document.querySelectorAll('.screen').forEach(el => el.classList.remove('active'));
-    document.getElementById(screenId).classList.add('active');
-    
-    if(screenId === 'screen-select') initSelect();
-    if(screenId === 'screen-game') startGame();
-  }
-
-  // --- 설정 로직 ---
-  let sfxOn = true;
-  function toggleSet(type) {
-    if(type === 'sfx') {
-      sfxOn = !sfxOn;
-      document.getElementById('sfx-txt').innerText = sfxOn ? "ON" : "OFF";
-    }
-    if(type === 'vol') {
-      let v = document.getElementById('vol-txt');
-      v.innerText = v.innerText === "100%" ? "50%" : v.innerText === "50%" ? "0%" : "100%";
-    }
-  }
-
-  // --- 캐릭터 선택 로직 ---
+  // --- 유틸 함수 ---
   function initSelect() {
-    selectStep = 0; p1Team = []; p2Team = [];
-    document.getElementById('p1-team').innerText = "P1 TEAM: [ 대기중 ]";
-    document.getElementById('p2-team').innerText = "P2 TEAM: [ 대기중 ]";
-    updateSelectStatus();
-    
-    const grid = document.getElementById('char-grid');
+    const grid = document.getElementById('char-select');
     grid.innerHTML = '';
-    tekkenRoster.forEach(c => {
+    roster.forEach(char => {
       let btn = document.createElement('button');
       btn.className = 'char-btn';
-      btn.innerText = c.name;
-      btn.onclick = () => selectChar(c);
+      btn.style.borderLeft = `5px solid ${char.color}`;
+      btn.innerText = char.name;
+      btn.onclick = () => selectChar(char);
       grid.appendChild(btn);
     });
   }
 
-  function updateSelectStatus() {
-    const msg = [
-      "Player 1 - 첫 번째 캐릭터를 선택하세요",
-      "Player 2 - 첫 번째 캐릭터를 선택하세요",
-      "Player 1 - 두 번째 캐릭터를 선택하세요",
-      "Player 2 - 두 번째 캐릭터를 선택하세요"
-    ];
-    document.getElementById('select-status').innerText = msg[selectStep] || "준비 완료!";
-  }
-
   function selectChar(char) {
-    if(selectStep > 3) return;
-    
-    if(selectStep === 0 || selectStep === 2) {
-      p1Team.push(char);
-      document.getElementById('p1-team').innerText = `P1 TEAM: ${p1Team.map(c=>c.name).join(' & ')}`;
-    } else {
-      p2Team.push(char);
-      document.getElementById('p2-team').innerText = `P2 TEAM: ${p2Team.map(c=>c.name).join(' & ')}`;
-    }
+    if(selectStep === 0) p1Team.push(char);
+    else if(selectStep === 1) p1Team.push(char);
+    else if(selectStep === 2) p2Team.push(char);
+    else if(selectStep === 3) p2Team.push(char);
     
     selectStep++;
-    if(selectStep > 3) {
-      setTimeout(() => nav('screen-game'), 500);
-    } else {
-      updateSelectStatus();
+    const msg = document.getElementById('status-msg');
+    if(selectStep === 1) msg.innerText = "Player 1 - Select Character (2/2)";
+    else if(selectStep === 2) msg.innerText = "Player 2 - Select Character (1/2)";
+    else if(selectStep === 3) msg.innerText = "Player 2 - Select Character (2/2)";
+    else {
+      document.getElementById('menu-layer').style.display = 'none';
+      document.getElementById('ui-layer').style.display = 'block';
+      startGame();
     }
   }
 
-  // --- 게임 엔진 ---
-  function startGame() {
-    p1 = { x: 5, hp: [40, 40], state: 'idle', timer: 0, guard: false };
-    p2 = { x: 40, hp: [40, 40], state: 'idle', timer: 0, guard: false };
-    p1Active = 0; p2Active = 0;
-    time = 99;
-    log("ROUND 1, FIGHT!");
-    if(gameInterval) clearInterval(gameInterval);
-    gameInterval = setInterval(gameLoop, 100); // 10FPS
-  }
-
-  function log(msg) {
-    document.getElementById('battle-log').innerText = msg;
-  }
-
-  function renderHP(hpArray, activeIdx) {
-    let mainHP = Math.max(0, hpArray[activeIdx]);
-    let subHP = Math.max(0, hpArray[1 - activeIdx]);
-    return `[${"█".repeat(Math.ceil(mainHP/2)).padEnd(20,"░")}] (SUB: ${subHP})`;
-  }
-
-  function gameLoop() {
-    if(time > 0 && p1.hp[p1Active] > 0 && p2.hp[p2Active] > 0) {
-       if(Math.random() < 0.1) time--; // 타이머 천천히 감소
+  // --- 클래스 정의 ---
+  class Player {
+    constructor(x, side, team) {
+      this.x = x;
+      this.y = GROUND_Y;
+      this.width = 60;
+      this.height = 120;
+      this.side = side; // 1 = P1, 2 = P2
+      this.team = team;
+      this.activeIdx = 0;
+      this.hp = [100, 100];
+      
+      this.velX = 0;
+      this.velY = 0;
+      this.isJumping = false;
+      this.isGuarding = false;
+      
+      this.attackTimer = 0;
+      this.hitbox = null; // {x, y, w, h, dmg}
+      this.tagCooldown = 0;
     }
-
-    // 상태 복구
-    if(p1.timer > 0) p1.timer--; else { p1.state = p1.guard ? 'guard' : 'idle'; }
-    if(p2.timer > 0) p2.timer--; else { p2.state = p2.guard ? 'guard' : 'idle'; }
-
-    // UI 업데이트
-    document.getElementById('time').innerText = `TIME: ${time}`;
-    document.getElementById('p1-ui').innerHTML = `<b>${p1Team[p1Active].name}</b> <span class="hp-bar">${renderHP(p1.hp, p1Active)}</span>`;
-    document.getElementById('p2-ui').innerHTML = `<span class="hp-bar">${renderHP(p2.hp, p2Active)}</span> <b>${p2Team[p2Active].name}</b>`;
-
-    // 렌더링
-    let screen = [];
-    for(let i=0; i<3; i++) {
-      let line = Array(boardWidth).fill(" ");
-      let s1 = spr[p1.state][i];
-      let s2 = spr2[p2.state][i];
-      for(let j=0; j<s1.length; j++) if(p1.x+j < boardWidth) line[p1.x+j] = s1[j];
-      for(let j=0; j<s2.length; j++) if(p2.x+j < boardWidth) line[p2.x+j] = s2[j];
-      screen.push(line.join(""));
-    }
-    screen.push("▔".repeat(boardWidth));
     
-    // 승패 체크
-    if(p1.hp[p1Active] <= 0) screen.push("\n         >>> K.O! PLAYER 2 WINS! <<<");
-    else if(p2.hp[p2Active] <= 0) screen.push("\n         >>> K.O! PLAYER 1 WINS! <<<");
-    else if(time <= 0) screen.push("\n         >>> TIME UP! <<<");
-
-    document.getElementById('game-board').innerText = screen.join("\n");
+    get char() { return this.team[this.activeIdx]; }
+    get currentHp() { return this.hp[this.activeIdx]; }
     
-    if(p1.hp[p1Active] <= 0 || p2.hp[p2Active] <= 0 || time <= 0) clearInterval(gameInterval);
-  }
-
-  // 타격 판정 로직
-  function attemptAttack(attacker, defPlayer, attX, defX, atkType, skillData = null) {
-    attacker.state = atkType; 
-    attacker.timer = atkType === 'skill' ? 5 : 3;
-    
-    let range = 4;
-    let dmg = 2;
-    let name = "일반 공격";
-
-    if(atkType === 'skill' && skillData) {
-      range = skillData.range * 2; // 아스키 비율 보정
-      dmg = skillData.dmg * 2;
-      name = skillData.skillName;
-      log(`${skillData.name}의 ${name}! ${skillData.effect}`);
-    }
-
-    let dist = Math.abs(defX - attX);
-    if(dist <= range) {
-      if(defPlayer.guard) {
-        log(`막았습니다! (${name} 방어)`);
-      } else {
-        let activeIdx = defPlayer === p1 ? p1Active : p2Active;
-        defPlayer.hp[activeIdx] -= dmg;
-        defPlayer.state = 'hit';
-        defPlayer.timer = 3;
-        // 넉백
-        if(defPlayer === p1) p1.x = Math.max(0, p1.x - 2);
-        else p2.x = Math.min(boardWidth - 5, p2.x + 2);
+    draw() {
+      // 본체 그리기
+      ctx.fillStyle = this.char.color;
+      ctx.fillRect(this.x, this.y - this.height, this.width, this.height);
+      
+      // 방어 이펙트
+      if(this.isGuarding) {
+        ctx.strokeStyle = '#0ff';
+        ctx.lineWidth = 3;
+        ctx.strokeRect(this.x - 5, this.y - this.height - 5, this.width + 10, this.height + 10);
+      }
+      
+      // 공격 힛박스 그리기 (디버그 및 시각 효과 겸용)
+      if(this.hitbox && this.attackTimer > 0) {
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+        ctx.fillRect(this.hitbox.x, this.hitbox.y, this.hitbox.w, this.hitbox.h);
       }
     }
+    
+    update() {
+      // 물리 (중력)
+      if(this.y < GROUND_Y) {
+        this.velY += 1.5; // 중력
+        this.y += this.velY;
+      } else {
+        this.y = GROUND_Y;
+        this.velY = 0;
+        this.isJumping = false;
+      }
+      
+      this.x += this.velX;
+      // 화면 밖 안 나가게
+      this.x = Math.max(0, Math.min(canvas.width - this.width, this.x));
+      
+      if(this.attackTimer > 0) this.attackTimer--;
+      else this.hitbox = null;
+      
+      if(this.tagCooldown > 0) this.tagCooldown--;
+    }
+
+    attack(type) {
+      if(this.attackTimer > 0) return; // 공격 쿨타임 중
+      
+      let dir = (p2.x > p1.x) ? 1 : -1; // 적 방향 바라보기
+      if(this.side === 2) dir = (p1.x > p2.x) ? 1 : -1;
+      
+      this.attackTimer = 20; // 공격 모션 프레임
+      
+      if(type === 'punch') {
+        this.hitbox = { x: this.x + (dir === 1 ? this.width : -40), y: this.y - 100, w: 40, h: 20, dmg: 5 };
+        createParticles(this.hitbox.x + 20, this.hitbox.y, '#fff', 5);
+      } 
+      else if(type === 'kick') {
+        this.hitbox = { x: this.x + (dir === 1 ? this.width : -50), y: this.y - 60, w: 50, h: 30, dmg: 8 };
+        createParticles(this.hitbox.x + 25, this.hitbox.y, '#aaa', 5);
+      }
+      else if(type === 'skill') {
+        this.attackTimer = 40; // 스킬은 후딜이 김
+        let skType = this.char.skillType;
+        
+        if(skType === 'projectile') {
+           projectiles.push({
+             x: this.x + (dir === 1 ? this.width : 0), y: this.y - 80,
+             vx: dir * 15, w: 30, h: 30, color: this.char.skillColor, owner: this.side, dmg: 12
+           });
+        } 
+        else if(skType === 'burst') {
+           this.hitbox = { x: this.x + (dir === 1 ? this.width : -80), y: this.y - 120, w: 80, h: 120, dmg: 15 };
+           createParticles(this.hitbox.x + 40, this.hitbox.y + 60, this.char.skillColor, 30, 10); // 대형 폭발
+        }
+        else if(skType === 'dash') {
+           this.velX = dir * 20; // 순간 돌진
+           this.hitbox = { x: this.x - 20, y: this.y - 100, w: this.width + 40, h: 100, dmg: 10 };
+           createParticles(this.x + this.width/2, this.y - 50, this.char.skillColor, 20);
+        }
+      }
+    }
+    
+    takeDamage(amt, knockbackDir) {
+      if(this.isGuarding) {
+        amt = Math.floor(amt * 0.2); // 가드 시 데미지 80% 감소
+        this.velX = knockbackDir * 2;
+        createParticles(this.x + this.width/2, this.y - 60, '#0ff', 5);
+      } else {
+        this.velX = knockbackDir * 10; // 넉백
+        createParticles(this.x + this.width/2, this.y - 60, '#f00', 15);
+      }
+      this.hp[this.activeIdx] = Math.max(0, this.hp[this.activeIdx] - amt);
+    }
   }
 
-  // 키보드 이벤트 맵핑
-  window.addEventListener('keydown', (e) => {
-    if(document.getElementById('screen-game').classList.contains('active') === false) return;
-    if(p1.hp[p1Active] <= 0 || p2.hp[p2Active] <= 0) return;
+  // --- 파티클 & 투사체 시스템 ---
+  function createParticles(x, y, color, count, speed=5) {
+    for(let i=0; i<count; i++) {
+      particles.push({
+        x: x, y: y,
+        vx: (Math.random() - 0.5) * speed * 2,
+        vy: (Math.random() - 0.5) * speed * 2,
+        life: 1.0, color: color
+      });
+    }
+  }
 
-    const key = e.key.toLowerCase();
-    let dist = p2.x - p1.x;
+  function drawAndUpdateParticles() {
+    for(let i=particles.length-1; i>=0; i--) {
+      let p = particles[i];
+      p.x += p.vx; p.y += p.vy; p.life -= 0.05;
+      if(p.life <= 0) { particles.splice(i, 1); continue; }
+      
+      ctx.globalAlpha = p.life;
+      ctx.fillStyle = p.color;
+      ctx.fillRect(p.x, p.y, 8, 8);
+      ctx.globalAlpha = 1.0;
+    }
+  }
+  
+  function drawAndUpdateProjectiles() {
+    for(let i=projectiles.length-1; i>=0; i--) {
+      let prj = projectiles[i];
+      prj.x += prj.vx;
+      
+      // 장풍 그리기 (꼬리 이펙트 포함)
+      ctx.fillStyle = prj.color;
+      ctx.beginPath();
+      ctx.arc(prj.x, prj.y, prj.w/2, 0, Math.PI*2);
+      ctx.fill();
+      createParticles(prj.x, prj.y, prj.color, 1, 2); 
+      
+      // 장풍 충돌 판정
+      let target = prj.owner === 1 ? p2 : p1;
+      if(prj.x > target.x && prj.x < target.x + target.width && prj.y > target.y - target.height && prj.y < target.y) {
+        target.takeDamage(prj.dmg, prj.vx > 0 ? 1 : -1);
+        createParticles(prj.x, prj.y, prj.color, 20, 8); // 히트 폭발
+        projectiles.splice(i, 1);
+        continue;
+      }
+      
+      if(prj.x < 0 || prj.x > canvas.width) projectiles.splice(i, 1);
+    }
+  }
 
-    // --- P1 조작 ---
-    if(key === 'a' && p1.x > 0) p1.x--;
-    if(key === 'd' && dist > 4) p1.x++;
-    if(key === 's') { p1.guard = true; p1.state = 'guard'; }
-    if(key === 'f' && p1.state === 'idle') attemptAttack(p1, p2, p1.x, p2.x, 'punch');
-    if(key === 'g' && p1.state === 'idle') attemptAttack(p1, p2, p1.x, p2.x, 'kick');
-    if(key === 'h' && p1.state === 'idle') attemptAttack(p1, p2, p1.x, p2.x, 'skill', p1Team[p1Active]);
-    if(key === 't') { 
-      if(p1.hp[1 - p1Active] > 0) { p1Active = 1 - p1Active; log(`P1 태그! ${p1Team[p1Active].name} 등장!`); }
+  // --- 메인 게임 루프 ---
+  function startGame() {
+    p1 = new Player(100, 1, p1Team);
+    p2 = new Player(800, 2, p2Team);
+    p2.x = 800 - p2.width; // 우측 배치
+    
+    timeLeft = 99;
+    particles = []; projectiles = [];
+    
+    updateUI();
+    
+    // 타이머 1초마다 감소
+    setInterval(() => {
+      if(timeLeft > 0 && p1.currentHp > 0 && p2.currentHp > 0) {
+        timeLeft--;
+        document.getElementById('timer').innerText = timeLeft;
+      }
+    }, 1000);
+    
+    requestAnimationFrame(loop);
+  }
+
+  function checkHitbox(attacker, defender) {
+    if(!attacker.hitbox) return;
+    let h = attacker.hitbox;
+    // AABB 충돌 판정
+    if(h.x < defender.x + defender.width && h.x + h.w > defender.x &&
+       h.y < defender.y && h.y + h.h > defender.y - defender.height) {
+       
+       let dir = attacker.x < defender.x ? 1 : -1;
+       defender.takeDamage(h.dmg, dir);
+       attacker.hitbox = null; // 1타만 맞게 처리
+    }
+  }
+
+  function updateUI() {
+    document.getElementById('p1-name').innerText = `${p1.char.name} (Tag: ${p1.team[1-p1.activeIdx].name})`;
+    document.getElementById('p2-name').innerText = `${p2.char.name} (Tag: ${p2.team[1-p2.activeIdx].name})`;
+    document.getElementById('p1-hp-fill').style.width = p1.currentHp + '%';
+    document.getElementById('p2-hp-fill').style.width = p2.currentHp + '%';
+  }
+
+  function loop() {
+    // 배경 클리어
+    ctx.fillStyle = '#222';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    // 바닥 선
+    ctx.strokeStyle = '#555';
+    ctx.lineWidth = 5;
+    ctx.beginPath(); ctx.moveTo(0, GROUND_Y); ctx.lineTo(canvas.width, GROUND_Y); ctx.stroke();
+
+    if(p1.currentHp > 0 && p2.currentHp > 0 && timeLeft > 0) {
+      handleInput();
+      
+      p1.update(); p2.update();
+      
+      // 마찰력 (자연스럽게 멈춤)
+      if(!keys['a'] && !keys['d'] && p1.attackTimer === 0) p1.velX *= 0.8;
+      if(!keys['ArrowLeft'] && !keys['ArrowRight'] && p2.attackTimer === 0) p2.velX *= 0.8;
+
+      checkHitbox(p1, p2);
+      checkHitbox(p2, p1);
+    }
+    
+    p1.draw(); p2.draw();
+    drawAndUpdateProjectiles();
+    drawAndUpdateParticles();
+    updateUI();
+
+    // KO 판정 텍스트
+    if(p1.currentHp <= 0 || p2.currentHp <= 0 || timeLeft <= 0) {
+      ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(0,0,canvas.width,canvas.height);
+      ctx.fillStyle = '#ff0'; ctx.font = '60px Arial'; ctx.textAlign = 'center';
+      let msg = timeLeft <= 0 ? "TIME UP!" : (p1.currentHp <= 0 ? "PLAYER 2 WINS!" : "PLAYER 1 WINS!");
+      ctx.fillText("K.O!", canvas.width/2, canvas.height/2 - 40);
+      ctx.fillText(msg, canvas.width/2, canvas.height/2 + 40);
+    } else {
+      gameLoopReq = requestAnimationFrame(loop);
+    }
+  }
+
+  // --- 입력 처리 ---
+  window.addEventListener('keydown', e => { keys[e.key] = true; });
+  window.addEventListener('keyup', e => { keys[e.key] = false; });
+
+  function handleInput() {
+    const SPEED = 6;
+    
+    // --- P1 (WASD, ZXC, T) ---
+    p1.isGuarding = keys['s'];
+    if(!p1.isGuarding && p1.attackTimer === 0) {
+      if(keys['a']) p1.velX = -SPEED;
+      if(keys['d']) p1.velX = SPEED;
+      if(keys['w'] && !p1.isJumping) { p1.velY = -20; p1.isJumping = true; }
+      
+      if(keys['z']) p1.attack('punch');
+      else if(keys['x']) p1.attack('kick');
+      else if(keys['c']) p1.attack('skill');
+    }
+    if(keys['t'] && p1.tagCooldown === 0 && p1.hp[1-p1.activeIdx] > 0) {
+      p1.activeIdx = 1 - p1.activeIdx;
+      p1.tagCooldown = 120; // 태그 쿨타임
+      createParticles(p1.x + p1.width/2, p1.y - p1.height/2, '#fff', 30, 10);
     }
 
-    // --- P2 조작 ---
-    if(key === 'arrowleft' && dist > 4) p2.x--;
-    if(key === 'arrowright' && p2.x < boardWidth - 5) p2.x++;
-    if(key === 'arrowdown') { p2.guard = true; p2.state = 'guard'; }
-    if(key === 'i' && p2.state === 'idle') attemptAttack(p2, p1, p2.x, p1.x, 'punch');
-    if(key === 'o' && p2.state === 'idle') attemptAttack(p2, p1, p2.x, p1.x, 'kick');
-    if(key === 'p' && p2.state === 'idle') attemptAttack(p2, p1, p2.x, p1.x, 'skill', p2Team[p2Active]);
-    if(key === 'l') { 
-      if(p2.hp[1 - p2Active] > 0) { p2Active = 1 - p2Active; log(`P2 태그! ${p2Team[p2Active].name} 등장!`); }
+    // --- P2 (방향키, IOP, L) ---
+    p2.isGuarding = keys['ArrowDown'];
+    if(!p2.isGuarding && p2.attackTimer === 0) {
+      if(keys['ArrowLeft']) p2.velX = -SPEED;
+      if(keys['ArrowRight']) p2.velX = SPEED;
+      if(keys['ArrowUp'] && !p2.isJumping) { p2.velY = -20; p2.isJumping = true; }
+      
+      if(keys['i']) p2.attack('punch');
+      else if(keys['o']) p2.attack('kick');
+      else if(keys['p']) p2.attack('skill');
     }
+    if(keys['l'] && p2.tagCooldown === 0 && p2.hp[1-p2.activeIdx] > 0) {
+      p2.activeIdx = 1 - p2.activeIdx;
+      p2.tagCooldown = 120;
+      createParticles(p2.x + p2.width/2, p2.y - p2.height/2, '#fff', 30, 10);
+    }
+  }
 
-    gameLoop(); // 즉각 반응
-  });
-
-  window.addEventListener('keyup', (e) => {
-    const key = e.key.toLowerCase();
-    if(key === 's') { p1.guard = false; p1.state = 'idle'; }
-    if(key === 'arrowdown') { p2.guard = false; p2.state = 'idle'; }
-    gameLoop();
-  });
+  // 초기 시작 화면 구성
+  initSelect();
 </script>
 </body>
 </html>
